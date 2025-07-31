@@ -1,6 +1,7 @@
 
 import { useEffect, useState, memo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import axios from '@/lib/axios'
 import socket from '@/lib/socket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,61 +34,84 @@ const Profile = memo(() => {
 
   const { profile: profileUser , fetchProfile } = useUser();
 
-  const userPosts = profileUser?.posts || [];
-  const userComments = profileUser?.comment || [];
+  const [totalPostCount, setTotalPostCount] = useState(0);
+  const [userPosts, setUserPosts] = useState([])
+  const [postOffset, setPostOffset] = useState(0);
+  const [postHasMore, setPostHasMore] = useState(true);
+  const postLimit = 3;
+  const [loading, setLoading] = useState(true);
+  // const userComments = profileUser?.comment || [];
+
+  const [userComments, setUserComments] = useState([])
+  const [commentOffset, setCommentOffset] = useState(0);
+  const [commentHasMore, setCommentHasMore] = useState(true);
+  const [totalCommentCount, setTotalCommentCount] = useState(0);
+  const commentLimit = 3;
+
   const userSavedPosts = profileUser?.savedPosts || [];
 
   const isOwnProfile = currentUser?.id === id;
 
   const [showEditModal, setShowEditModal] = useState(false);
 
+ const fetchUserPosts = async (offset = 0) => {
+  try {
+    const res = await axios.get(`/user/${id}/posts`, {
+      params: { limit: postLimit, offset },
+    });
+
+    const { posts, totalCount } = res.data;
+
+    if (offset === 0) {
+      setUserPosts(posts);
+    } else {
+      setUserPosts((prev) => [...prev, ...posts]);
+    }
+    setTotalPostCount(totalCount)
+
+    setPostOffset(offset + postLimit);
+    setPostHasMore(offset + postLimit < totalCount);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const fetchUserComments = async (offset = 0) => {
+  try {
+    const res = await axios.get(`/user/${id}/comments`, {
+      params: { limit: commentLimit, offset },
+    });
+
+    const { comments, totalCount } = res.data;
+
+    if (offset === 0) {
+      setUserComments(comments);
+    } else {
+      setUserComments((prev) => [...prev, ...comments]);
+    }
+
+    setTotalCommentCount(totalCount);
+    setCommentOffset(offset + commentLimit);
+    setCommentHasMore(offset + commentLimit < totalCount);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
 
-//   useEffect(() => {
-//     socket.on('postCreated', (data) => {
-//   console.log('🔁 postCreated received in Profile.tsx');
-//   fetchProfile(id);
-// });
+useEffect(() => {
+  if (id) {
+    setLoading(true);
+    fetchUserPosts(0).finally(() => setLoading(false));
+  }
+}, [id]);
 
-//     socket.on('postUpdated', () => {
-//         fetchProfile();
-//     });
-//      socket.on('postBookmarked', () => {
-//         fetchProfile();
-//     });
-//     socket.on('postDeleted', () => {
-//         fetchProfile();
-//     });
-//     socket.on('commentCreated', () => {
-//         fetchProfile();
-//     });
-//     socket.on('commentUpdated', () => {
-//         fetchProfile();
-//     });
-//     socket.on('commentDeleted', () => {
-//         fetchProfile();
-//     });
-//     socket.on('replyCreated', () => {
-//         fetchProfile();
-//     });
-//     socket.on('replyUpdated', () => {
-//         fetchProfile();
-//     });
-//     socket.on('replyDeleted', () => {
-//         fetchProfile();
-//     });
-//     return () => {
-//       socket.off('postCreated');
-//       socket.off('postUpdated');
-//       socket.off('postDeleted');
-//       socket.off('commentCreated');
-//       socket.off('commentUpdated');
-//       socket.off('commentDeleted');
-//       socket.off('replyCreated');
-//       socket.off('replyUpdated');
-//       socket.off('replyDeleted');
-//     };
-//   }, [fetchProfile])
+useEffect(() => {
+  if (id) {
+    fetchUserComments();
+  }
+}, [id]);
+
 
   useEffect(() => {
     if (id) {
@@ -95,7 +119,7 @@ const Profile = memo(() => {
     }
   }, [id, fetchProfile]);
 
-  if (!profileUser) {
+  if (!profileUser || !userPosts) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">User not found</h1>
@@ -224,11 +248,11 @@ const Profile = memo(() => {
                     <div className="text-xs text-muted-foreground">Reputation</div>
                   </div>
                   <div className="p-3 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-bold">{userPosts.length}</div>
+                    <div className="text-2xl font-bold">{totalPostCount}</div>
                     <div className="text-xs text-muted-foreground">Posts</div>
                   </div>
                   <div className="p-3 bg-muted/30 rounded-lg">
-                    <div className="text-2xl font-bold">{userComments.length ?? 0}</div>
+                    <div className="text-2xl font-bold">{totalCommentCount}</div>
                     <div className="text-xs text-muted-foreground">Comments</div>
                   </div>
                   <div className="p-3 bg-muted/30 rounded-lg">
@@ -288,11 +312,11 @@ const Profile = memo(() => {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="posts" className="flex items-center space-x-2">
                 <BookOpen className="w-4 h-4" />
-                <span>Posts ({userPosts.length})</span>
+                <span>Posts ({totalPostCount})</span>
               </TabsTrigger>
               <TabsTrigger value="comments" className="flex items-center space-x-2">
                 <MessageSquare className="w-4 h-4" />
-                <span>Comments ({userComments.length})</span>
+                <span>Comments ({totalCommentCount})</span>
               </TabsTrigger>
               {isOwnProfile && (
                 <TabsTrigger value="saved" className="flex items-center space-x-2">
@@ -304,29 +328,28 @@ const Profile = memo(() => {
 
             <TabsContent value="posts" className="mt-6">
               <div className="space-y-4">
-                {userPosts.length === 0 ? (
-                  <Card>
-                    <CardContent className="pt-6 text-center">
-                      <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">
-                        {isOwnProfile ? "You haven't posted anything yet." : "This user hasn't posted anything yet."}
-                      </p>
-                      {isOwnProfile && (
-                        <Link to="/create" className="mt-4 inline-block">
-                          <Button>Create Your First Post</Button>
-                        </Link>
-                      )}
-                    </CardContent>
-                  </Card>
+                {userPosts?.length === 0 ? (
+                  <Card> ... </Card>
                 ) : (
-                  userPosts.map((post, index) => (
-                    <div key={index} style={{ animationDelay: `${index * 0.1}s` }} className="animate-fade-in">
-                      <PostCard post={post} />
-                    </div>
-                  ))
+                  <>
+                    {userPosts.map((post, index) => (
+                      <div key={index} style={{ animationDelay: `${index * 0.1}s` }} className="animate-fade-in">
+                        <PostCard post={post} />
+                      </div>
+                    ))}
+
+                    {postHasMore && (
+                      <div className="text-center mt-4">
+                        <Button onClick={() => fetchUserPosts(postOffset)} disabled={loading}>
+                          {loading ? 'Loading...' : 'Load More'}
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </TabsContent>
+
 
             <TabsContent value="comments" className="mt-6">
               <div className="space-y-4">
@@ -346,13 +369,19 @@ const Profile = memo(() => {
                         <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                           <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
                           <span>•</span>
-                          <span>{comment.upvotes} upvotes</span>
+                          <span>{comment._count.votes} votes</span>
                         </div>
                       </div>
                       <p className="text-sm leading-relaxed">{comment.content}</p>
                     </CardContent>
                   </Card>
                 ))}
+
+                {commentHasMore && (
+  <Button onClick={() => fetchUserComments(commentOffset)}>
+    Load More Comments
+  </Button>
+)}
               </div>
             </TabsContent>
 

@@ -46,16 +46,18 @@ export interface Post {
   tags: { postId: string; tagId: string; tag: { id: string; name: string } }[];
   createdAt: string;
   updatedAt: string;
-  _count?: {
+  _count: {
     comments: number;
     votes: number;
   };
+  topLevelCommentCount?: number;
   userVote?: 'UP' | 'DOWN' | null;
 }
 
 export interface PostContextType {
   posts: Post[];
-  fetchPosts: (params?) => Promise<void>;
+  setPosts: React.Dispatch<React.SetStateAction<Post[]>>;
+  fetchPosts: (params?: any, append?: boolean) => Promise<Post[]>;
   createPost: (data: { title: string; content: string; tags: string[] }) => Promise<void>;
   bookmarkPost: (id: string) => Promise<void>;
   unbookmarkPost: (id: string) => Promise<void>;
@@ -70,19 +72,34 @@ export const PostProvider = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
 
-  const fetchPosts = async (params = {}) => {
-    const res = await axios.get(`/posts`, { params });
+ const fetchPosts = async (params: any = {}, append = false) => {
+    const response = await axios.get('/posts', { params });
+    const fetched = response.data;
 
-    const normalized = res.data.map(post => ({
-    ...post,
-    upvotes: typeof post.upvotes === 'number' ? post.upvotes : 0,
-    downvotes: typeof post.downvotes === 'number' ? post.downvotes : 0,
-     userVote: post.userVote ?? null
-  }));
-    setPosts(normalized);
+   setPosts(prev => {
+  const updated = fetched.map(newPost => {
+  const existing = prev.find(p => p.id === newPost.id);
+  return existing
+    ? {
+        ...existing,
+        ...newPost,
+        topLevelCommentCount: newPost.topLevelCommentCount ?? existing.topLevelCommentCount ?? 0,
+      }
+    : {
+        ...newPost,
+        topLevelCommentCount: newPost.topLevelCommentCount ?? 0,
+      };
+});
+
+  // Only add posts that are truly new
+  const newPosts = fetched.filter(p => !prev.some(existing => existing.id === p.id));
+
+  return append ? [...prev.filter(p => !fetched.some(fp => fp.id === p.id)), ...updated] : fetched;
+});
+
+
+    return fetched;
   };
-
-
 
   const createPost = async (data: { title: string; content: string; tags: string[] }) => {
     await axios.post('/posts', data);
@@ -202,7 +219,7 @@ const handleVoteUpdate = (updatedPost: Post) => {
 
   return (
     <PostContext.Provider
-      value={{ posts, fetchPosts, createPost, bookmarkPost, votePost, deletePost, unbookmarkPost }}
+      value={{ posts, setPosts, fetchPosts, createPost, bookmarkPost, votePost, deletePost, unbookmarkPost }}
     >
       {children}
     </PostContext.Provider>

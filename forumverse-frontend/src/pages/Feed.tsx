@@ -1,5 +1,4 @@
-
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { PostCard } from '@/components/PostCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import { Search, Filter, TrendingUp, Clock, Plus } from 'lucide-react';
 import { usePosts } from '@/hooks/usePosts';
 import { mockTags } from '@/data/mockData'; 
 import { Link } from 'react-router-dom';
+import axios from '@/lib/axios';
 
 
 export default function Feed() {
@@ -22,7 +22,65 @@ export default function Feed() {
   const [selectedTags, setSelectedTags] = useState<{ tag: { id: string; name: string } }[]>([]);
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'trending'>('newest');
 
-  const {posts} = usePosts();
+  const {posts, fetchPosts, setPosts} = usePosts();
+  const [page, setPage] = useState(1);
+  const [limit] = useState(4);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const didMountRef = useRef(false);
+
+  
+useEffect(() => {
+  if (page === 1) return; // skip initial load, it's handled separately
+  loadPosts();
+}, [page]);
+
+
+useEffect(() => {
+  if (didMountRef.current) {
+    setPage(1);
+    setHasMore(true);
+    setPosts([]); // reset
+    loadPosts(true); // manually load first page
+  } else {
+    didMountRef.current = true;
+  }
+}, [searchQuery, selectedTags, sortBy]);
+
+
+const loadPosts = async (isInitial = false) => {
+  if (!hasMore || loading) return;
+
+  setLoading(true);
+  try {
+    const params = {
+      page: isInitial ? 1 : page,
+      limit,
+      search: searchQuery,
+      tags: selectedTags.map(t => t.tag.name).join(','),
+      sort: sortBy,
+    };
+
+    const response = await fetchPosts(params, !isInitial);
+
+    if (response.length < limit) {
+      setHasMore(false);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  setLoading(false);
+};
+
+// Call this manually when you want to load next page
+const handleLoadMore = () => {
+  if (!loading && hasMore) {
+    setPage(prev => prev + 1);
+  }
+};
+
+
+
   
 
   const filteredAndSortedPosts = useMemo(() => {
@@ -193,6 +251,15 @@ export default function Feed() {
               ))
             )}
           </div>
+
+          {hasMore && !loading && (
+            <div className="text-center mt-6">
+              <Button onClick={() => setPage(prev => prev + 1)} disabled={loading}>
+                {loading ? 'Loading...' : 'Load More'}
+              </Button>
+            </div>
+          )}
+
         </div>
 
         {/* Sidebar */}

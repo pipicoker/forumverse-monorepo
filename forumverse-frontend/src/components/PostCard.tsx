@@ -19,7 +19,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { usePosts } from '@/hooks/usePosts';
 import { useAuth } from '@/hooks/useAuth';
-import { Post } from '@/types';
+import {Post} from '@/contexts/PostContext'
 
 // Lazy loading image component
 const LazyImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
@@ -255,7 +255,7 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
             <Link to={`/post/${post.id}`}>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground p-1 h-8">
                 <MessageSquare className="w-4 h-4" />
-                <span className="ml-1 text-sm">{post.comments?.length || 0}</span>
+                <span className="ml-1 text-sm">{post.topLevelCommentCount }</span>
               </Button>
             </Link>
           </div>

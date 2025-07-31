@@ -85,6 +85,7 @@ const handleDeleteComment = async (commentId: string) => {
 
     axios.get(`/posts/${id}`)
        .then(res => {
+        console.log('post fetched:', res.data);
         setPost(res.data);
         setIsBookmarked(res.data.isBookmarked); // ✅ set bookmark state here
       })

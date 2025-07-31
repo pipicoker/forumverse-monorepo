@@ -35,6 +35,8 @@ export interface Post {
   isLocked?: boolean;
   isBookmarked?: boolean;
   userVote?: 'UP' | 'DOWN' | null;
+  commentCount?: number;
+
 }
 
 export interface Comment {

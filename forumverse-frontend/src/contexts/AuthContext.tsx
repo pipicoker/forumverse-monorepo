@@ -103,12 +103,13 @@ const refreshUser = async () => {
 
   const logout = async () => {
     await axios.delete(`${API_BASE}/api/auth/logout`);
+    window.location.href = '/';
     localStorage.removeItem('token');
     localStorage.removeItem('userProfile'); 
     localStorage.removeItem('user');
     setAuthState({ isAuthenticated: false, user: null });
     toast({ title: 'Logged out successfully', variant: 'default' });
-    window.location.href = '/'; // Redirect to home page
+     // Redirect to home page
   };
 
   const register = async (username: string, email: string, password: string) => {

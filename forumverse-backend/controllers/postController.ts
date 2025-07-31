@@ -31,7 +31,7 @@ const prisma = new PrismaClient();
 export const getAllPosts = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { page = 1, limit = 10, search, tags, sort = 'newest' } = req.query;
+    const { page = 1, limit = 4, search, tags, sort = 'newest' } = req.query;
 
     const where: any = {};
 
@@ -59,72 +59,38 @@ export const getAllPosts = async (req: Request, res: Response) => {
       orderBy = { votes: { _count: 'desc' } };
     }
 
-    const posts = await prisma.post.findMany({
-      where,
-      orderBy,
-      skip: (Number(page) - 1) * Number(limit),
-      take: Number(limit),
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-            role: true
-          }
-        },
-        votes: {
-          select: {
-            id: true,
-            type: true,
-            userId: true
-          }
-        },
-        comments: {
-            include: {
-                author: {
-                select: {
-                    id: true,
-                    username: true,
-                    avatar: true,
-                    role: true
-                }
-                },
-                votes: true,
-                replies: {
-                include: {
-                    author: {
-                    select: {
-                        id: true,
-                        username: true,
-                        avatar: true,
-                        role: true
-                    }
-                    },
-                    votes: true,
-                }
-                }
-            }
-        },
-        tags: {
-          include: {
-            tag: true
-          }
-        },
-        _count: {
-          select: {
-            comments: true,
-            votes: true
-          }
-        },
-        ...(userId && {
-          savedBy: {
-            where: { userId },
-            select: { userId: true }
-          }
-        })
+   const posts = await prisma.post.findMany({
+    where,
+    orderBy,
+    skip: (Number(page) - 1) * Number(limit),
+    take: Number(limit),
+    include: {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          avatar: true,
+          role: true
+        }
       },
-    });
+      tags: {
+        include: { tag: true }
+      },
+      votes: true, // consider selecting only vote `type` and `userId`
+      _count: {
+        select: {
+          votes: true
+        }
+      },
+      ...(userId && {
+        savedBy: {
+          where: { userId },
+          select: { userId: true }
+        }
+      })
+    }
+});
+
 
     // Get all post IDs
     const postIds = posts.map((post: any) => post.id);
@@ -149,22 +115,40 @@ export const getAllPosts = async (req: Request, res: Response) => {
       userVotes.map(v => [v.postId, v.type])
     );
 
-const postsWithVotes = posts.map((post: any) => {
+    const topLevelCommentCounts = await prisma.comment.groupBy({
+    by: ['postId'],
+    where: {
+      postId: { in: postIds },
+      parentId: null
+    },
+    _count: {
+      _all: true // gets total count of comments per postId
+    }
+  });
+
+const commentCountMap = Object.fromEntries(
+  topLevelCommentCounts.map(c => [c.postId, c._count._all])
+);
+
+
+
+ const postsWithVotes = posts.map((post: any) => {
   const upvotes = post.votes.filter((v: any) => v.type === 'UP').length;
   const downvotes = post.votes.filter((v: any) => v.type === 'DOWN').length;
   const userVote = userId
     ? post.votes.find((v: any) => v.userId === userId)?.type ?? null
     : null;
 
-
   return {
     ...post,
     upvotes,
     downvotes,
     userVote,
+    topLevelCommentCount: commentCountMap[post.id] ?? 0,
     isBookmarked: userId ? post.savedBy?.length > 0 : false,
   };
 });
+
 
 res.json(postsWithVotes);
 
@@ -179,13 +163,19 @@ export const getSinglePost = async(req: Request, res:Response) => {
         const userId = req.user?.userId;
         const post = await prisma.post.findUnique({
             where: {id: req.params.id},
-            include: {
+            select: {
+                id: true,
+                title: true,
+                content: true,
+                createdAt: true,
+                updatedAt: true,
+                excerpt: true,
                 author: {
                     select: {
                         id: true,
                         username: true,
                         avatar: true,
-                        role: true
+                        // role: true
                     }
                 },
                 tags: {
@@ -193,35 +183,35 @@ export const getSinglePost = async(req: Request, res:Response) => {
                         tag: true
                     }
                 },
-                comments: {
-                include: {
-                    author: {
-                    select: {
-                        id: true,
-                        username: true,
-                        avatar: true,
-                        role: true
-                    }
-                    },
-                    votes: true,
-                    replies: {
-                    include: {
-                        author: {
-                        select: {
-                            id: true,
-                            username: true,
-                            avatar: true,
-                            role: true
-                        }
-                        },
-                        votes: true,
-                    }
-                    }
-                },
-                where: {
-                    parentId: null
-                }
-                },
+                // comments: {
+                // include: {
+                //     author: {
+                //     select: {
+                //         id: true,
+                //         username: true,
+                //         avatar: true,
+                //         role: true
+                //     }
+                //     },
+                //     votes: true,
+                //     replies: {
+                //     include: {
+                //         author: {
+                //         select: {
+                //             id: true,
+                //             username: true,
+                //             avatar: true,
+                //             role: true
+                //         }
+                //         },
+                //         votes: true,
+                //     }
+                //     }
+                // },
+                // where: {
+                //     parentId: null
+                // }
+                // },
                 votes: {
                     select: {
                         id: true,
@@ -267,6 +257,9 @@ export const getSinglePost = async(req: Request, res:Response) => {
         res.status(500).json({ error: 'Server error' });
     }
 }
+
+
+
 
 
 // create post
