@@ -36,19 +36,9 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Post ID is required' });
         }
 
-        // Fetch only top-level comments with pagination
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = Math.min(20, parseInt(req.query.limit as string) || 10);
-        const skip = (page - 1) * limit;
-
+        // Fetch comments for the post
         const comments = await prisma.comment.findMany({
-            where: { 
-                postId,
-                parentId: null // Only top-level comments
-            },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
+            where: { postId },
             include: {
                 author: {
                     select: {
@@ -59,9 +49,8 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
                     },
 
                 },
-                _count: { select: { votes: true, replies: true } },
+                votes: true,
                  replies: {
-                    take: 3, // Limit initial replies shown
                     include: {
                         author: {
                             select: {
@@ -71,78 +60,19 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
                                 role: true
                             }
                         },
-                        _count: { select: { votes: true } }
+                        votes: true
                     }
                 },
 
             }
-        });
+        })
 
-        // Batch fetch vote counts and user votes
-        const commentIds = comments.flatMap(c => [c.id, ...c.replies.map(r => r.id)]);
         
-        let userVotes: Map<string, string> = new Map();
-        let voteCounts: Map<string, { upvotes: number; downvotes: number }> = new Map();
-        
-        if (commentIds.length > 0) {
-            const [votes, userVoteData] = await Promise.all([
-                prisma.vote.groupBy({
-                    by: ['commentId', 'type'],
-                    where: { commentId: { in: commentIds } },
-                    _count: { id: true }
-                }),
-                userId ? prisma.vote.findMany({
-                    where: { userId, commentId: { in: commentIds } },
-                    select: { commentId: true, type: true }
-                }) : Promise.resolve([])
-            ]);
-            
-            // Build vote count map
-            commentIds.forEach(id => voteCounts.set(id, { upvotes: 0, downvotes: 0 }));
-            votes.forEach(({ commentId, type, _count }) => {
-                if (commentId) {
-                    const counts = voteCounts.get(commentId);
-                    if (counts) {
-                        if (type === 'UP') counts.upvotes = _count.id;
-                        if (type === 'DOWN') counts.downvotes = _count.id;
-                    }
-                }
-            });
-            
-            // Build user vote map
-            userVoteData.forEach(({ commentId, type }) => {
-                if (commentId) userVotes.set(commentId, type);
-            });
-        }
-
-        // Enrich comments with vote data
-        const enriched = comments.map(comment => {
-            const counts = voteCounts.get(comment.id) || { upvotes: 0, downvotes: 0 };
-            const userVote = userVotes.get(comment.id) || null;
-            
-            return {
-                ...comment,
-                upvotes: counts.upvotes,
-                downvotes: counts.downvotes,
-                userVote,
-                replies: comment.replies.map(reply => {
-                    const replyCounts = voteCounts.get(reply.id) || { upvotes: 0, downvotes: 0 };
-                    const replyUserVote = userVotes.get(reply.id) || null;
-                    
-                    return {
-                        ...reply,
-                        upvotes: replyCounts.upvotes,
-                        downvotes: replyCounts.downvotes,
-                        userVote: replyUserVote,
-                    };
-                })
-            };
-        });
-        
+       // Enrich all comments (and replies) with upvotes, downvotes, userVote
+    const enriched = comments.map(comment => enrichComment(comment, userId));
     res.json(enriched);
 
     } catch (error) {
-        console.error('Error in getCommentsForPost:', error);
         res.status(500).json({ error: 'Server error' });
         
     }

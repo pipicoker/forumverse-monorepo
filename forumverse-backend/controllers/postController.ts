@@ -32,10 +32,6 @@ export const getAllPosts = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;
     const { page = 1, limit = 10, search, tags, sort = 'newest' } = req.query;
-    
-    // Validate and sanitize pagination params
-    const pageNum = Math.max(1, parseInt(page as string) || 1);
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit as string) || 10)); // Cap at 50
 
     const where: any = {};
 
@@ -66,8 +62,8 @@ export const getAllPosts = async (req: Request, res: Response) => {
     const posts = await prisma.post.findMany({
       where,
       orderBy,
-      skip: (pageNum - 1) * limitNum,
-      take: limitNum,
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit),
       include: {
         author: {
           select: {
@@ -77,6 +73,39 @@ export const getAllPosts = async (req: Request, res: Response) => {
             role: true
           }
         },
+        votes: {
+          select: {
+            id: true,
+            type: true,
+            userId: true
+          }
+        },
+        comments: {
+            include: {
+                author: {
+                select: {
+                    id: true,
+                    username: true,
+                    avatar: true,
+                    role: true
+                }
+                },
+                votes: true,
+                replies: {
+                include: {
+                    author: {
+                    select: {
+                        id: true,
+                        username: true,
+                        avatar: true,
+                        role: true
+                    }
+                    },
+                    votes: true,
+                }
+                }
+            }
+        },
         tags: {
           include: {
             tag: true
@@ -85,94 +114,26 @@ export const getAllPosts = async (req: Request, res: Response) => {
         _count: {
           select: {
             comments: true,
-            votes: true,
-            savedBy: true
+            votes: true
           }
         },
-      },
-    });
-
-    // Batch fetch user votes and bookmarks for better performance
-    let userVotes: { postId: string, type: string }[] = [];
-    let userBookmarks: Set<string> = new Set();
-    
-    if (userId) {
-      const postIds = posts.map((post: any) => post.id);
-      
-      // Fetch user votes in parallel
-      const [votes, bookmarks] = await Promise.all([
-        prisma.vote.findMany({
-          where: {
-            userId,
-            postId: { in: postIds }
-          },
-          select: { postId: true, type: true }
-        }),
-        prisma.savedPost.findMany({
-          where: {
-            userId,
-            postId: { in: postIds }
-          },
-          select: { postId: true }
+        ...(userId && {
+          savedBy: {
+            where: { userId },
+            select: { userId: true }
+          }
         })
-      ]);
-      
-      userVotes = votes.filter(v => v.postId !== null) as { postId: string, type: string }[];
-      userBookmarks = new Set(bookmarks.map(b => b.postId));
-    }
-
-    // Batch fetch vote counts for all posts
-    const voteCounts = await prisma.vote.groupBy({
-      by: ['postId', 'type'],
-      where: {
-        postId: { in: posts.map(p => p.id) }
       },
-      _count: {
-        id: true
-      }
     });
 
-    // Create vote count map for efficient lookup
-    const voteCountMap = new Map<string, { upvotes: number; downvotes: number }>();
-    posts.forEach(post => {
-      voteCountMap.set(post.id, { upvotes: 0, downvotes: 0 });
-    });
-    
-    voteCounts.forEach(({ postId, type, _count }) => {
-      if (postId) {
-        const counts = voteCountMap.get(postId);
-        if (counts) {
-          if (type === 'UP') counts.upvotes = _count.id;
-          if (type === 'DOWN') counts.downvotes = _count.id;
-        }
-      }
-    });
+    // Get all post IDs
+    const postIds = posts.map((post: any) => post.id);
 
-    const postsWithVotes = posts.map((post: any) => {
-      const counts = voteCountMap.get(post.id) || { upvotes: 0, downvotes: 0 };
-      const userVote = userId
-        ? userVotes.find(v => v.postId === post.id)?.type ?? null
-        : null;
-
-      return {
-        ...post,
-        upvotes: counts.upvotes,
-        downvotes: counts.downvotes,
-        userVote,
-        isBookmarked: userId ? userBookmarks.has(post.id) : false,
-        // Remove heavy nested data that's not needed for feed
-        votes: undefined,
-        comments: undefined,
-      };
-    });
-
-    res.json(postsWithVotes);
-
-  } catch (error) {
-    console.error('Error in getAllPosts:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
+    // Fetch all votes by this user for these posts
+    let userVotes: { postId: string, type: string }[] = [];
+  // After fetching userVotes
+    if (userId) {
+    userVotes = (await prisma.vote.findMany({
         where: {
         userId,
         postId: { in: postIds }
@@ -216,14 +177,8 @@ res.json(postsWithVotes);
 export const getSinglePost = async(req: Request, res:Response) => {
     try {
         const userId = req.user?.userId;
-        const postId = req.params.id;
-        
-        if (!postId) {
-            return res.status(400).json({ error: 'Post ID is required' });
-        }
-
         const post = await prisma.post.findUnique({
-            where: { id: postId },
+            where: {id: req.params.id},
             include: {
                 author: {
                     select: {
@@ -237,6 +192,35 @@ export const getSinglePost = async(req: Request, res:Response) => {
                     include: {
                         tag: true
                     }
+                },
+                comments: {
+                include: {
+                    author: {
+                    select: {
+                        id: true,
+                        username: true,
+                        avatar: true,
+                        role: true
+                    }
+                    },
+                    votes: true,
+                    replies: {
+                    include: {
+                        author: {
+                        select: {
+                            id: true,
+                            username: true,
+                            avatar: true,
+                            role: true
+                        }
+                        },
+                        votes: true,
+                    }
+                    }
+                },
+                where: {
+                    parentId: null
+                }
                 },
                 votes: {
                     select: {
@@ -253,7 +237,6 @@ export const getSinglePost = async(req: Request, res:Response) => {
                 })
             }
         });
-        
 
         if(!post) {
             return res.status(404).json({error: 'Post not found'})
@@ -271,6 +254,8 @@ export const getSinglePost = async(req: Request, res:Response) => {
             else if (vote?.type === 'DOWN') userVote = 'downvote';
         }
 
+    
+
         res.json({
         ...post,
         upvotes,
@@ -279,7 +264,6 @@ export const getSinglePost = async(req: Request, res:Response) => {
         isBookmarked: userId ? post.savedBy?.length > 0 : false,
         });
     } catch (error) {
-        console.error('Error in getSinglePost:', error);
         res.status(500).json({ error: 'Server error' });
     }
 }

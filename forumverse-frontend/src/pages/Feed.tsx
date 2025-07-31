@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+
+import { useState, useMemo } from 'react';
 import { PostCard } from '@/components/PostCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,42 +16,20 @@ import { usePosts } from '@/hooks/usePosts';
 import { mockTags } from '@/data/mockData'; 
 import { Link } from 'react-router-dom';
 
-// Debounce hook for search
-const useDebounce = (value: string, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
 
 export default function Feed() {
   const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedTags, setSelectedTags] = useState<{ tag: { id: string; name: string } }[]>([]);
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'trending'>('newest');
-  const observerRef = useRef<IntersectionObserver>();
-  const lastPostElementRef = useRef<HTMLDivElement>();
 
   const {posts} = usePosts();
   
-  // Memoize filter and sort operations
+
   const filteredAndSortedPosts = useMemo(() => {
-    if (!posts) return [];
-    
-    const filtered = posts.filter(post => {
-      const matchesSearch = !debouncedSearchQuery || 
-                           post.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-                           post.content.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-                           post.author.username.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    const filtered = posts?.filter(post => {
+      const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           post.author.username.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesTags = selectedTags.length === 0 || 
                          selectedTags.some(selectedTag => 
@@ -78,16 +57,16 @@ export default function Feed() {
     }
 
     return filtered;
-  }, [debouncedSearchQuery, selectedTags, sortBy, posts]);
+  }, [searchQuery, selectedTags, sortBy, posts]);
 
-  const toggleTag = useCallback((tagName: string) => {
+  const toggleTag = (tagName: string) => {
     const tagObj = { tag: { id: tagName, name: tagName } };
     setSelectedTags(prev => 
       prev.some(t => t.tag.name === tagName)
         ? prev.filter(t => t.tag.name !== tagName)
         : [...prev, tagObj]
     );
-  }, []);
+  };
 
   const getSortIcon = () => {
     switch (sortBy) {
