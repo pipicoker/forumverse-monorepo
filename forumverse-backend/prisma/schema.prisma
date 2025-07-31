@@ -54,6 +54,9 @@ model Post {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
+  @@index([createdAt])
+  @@index([authorId])
+  @@index([isSticky, createdAt])
   @@map("posts")
 }
 
@@ -74,6 +77,9 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([postId, parentId])
+  @@index([authorId])
+  @@index([createdAt])
   @@map("comment")
 }
 
@@ -111,6 +117,8 @@ model Vote {
 
   @@unique([userId, postId])
   @@unique([userId, commentId])
+  @@index([postId, type])
+  @@index([commentId, type])
   @@map("votes")
 }
 

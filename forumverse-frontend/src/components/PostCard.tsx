@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -21,36 +21,6 @@ import { usePosts } from '@/hooks/usePosts';
 import { useAuth } from '@/hooks/useAuth';
 import { Post } from '@/types';
 
-// Lazy loading image component
-const LazyImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  return (
-    <div className={`relative overflow-hidden ${className}`}>
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 bg-muted animate-pulse" />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${
-          isLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
-        onLoad={() => setIsLoaded(true)}
-        onError={() => setHasError(true)}
-        loading="lazy"
-      />
-      {hasError && (
-        <div className="absolute inset-0 bg-muted flex items-center justify-center">
-          <span className="text-muted-foreground text-sm">Image unavailable</span>
-        </div>
-      )}
-    </div>
-  );
-});
-
-LazyImage.displayName = 'LazyImage';
 
 interface PostCardProps {
   post: Post;
@@ -59,8 +29,10 @@ interface PostCardProps {
 
 export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
   const {deletePost} = usePosts();
-  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [userVote, setUserVote] = useState<'up' | 'down' | null>(
+    post.userVote === 'UP' ? 'up' : post.userVote === 'DOWN' ? 'down' : null
+  );
+  const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [localVotes, setLocalVotes] = useState({
     upvotes: post.upvotes,
@@ -70,7 +42,7 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
   const { bookmarkPost, unbookmarkPost, votePost } = usePosts();
   const { user } = useAuth();
 
-  const handleVote = async (voteType: 'up' | 'down') => {
+  const handleVote = useCallback(async (voteType: 'up' | 'down') => {
     if (!user) return;
 
     const newVote = userVote === voteType ? null : voteType;
@@ -100,9 +72,9 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
       setUserVote(oldVote);
       setLocalVotes({ upvotes: post.upvotes, downvotes: post.downvotes });
     }
-  };
+  }, [user, userVote, post.id, post.upvotes, post.downvotes, votePost]);
 
-  const handleBookmark = async () => {
+  const handleBookmark = useCallback(async () => {
     if (!user) return;
     
     const newBookmarkState = !isBookmarked;
@@ -117,9 +89,9 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
     } catch (error) {
       setIsBookmarked(!newBookmarkState);
     }
-  };
+  }, [user, isBookmarked, post.id, bookmarkPost, unbookmarkPost]);
 
-  const handleShare = async () => {
+  const handleShare = useCallback(async () => {
     if (navigator.share) {
       try {
         await navigator.share({
@@ -134,9 +106,9 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
     } else {
       navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
     }
-  };
+  }, [post.title, post.content, post.id]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
   if (!user || user.id !== post.author.id) return;
 
   const confirmDelete = window.confirm('Are you sure you want to delete this post?');
@@ -144,11 +116,10 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
 
   try {
     await deletePost(post.id);
-    // Optionally: trigger re-fetch or remove from local state if you're caching
   } catch (error) {
     console.error('Failed to delete post:', error);
   }
-};
+}, [user, post.author.id, post.id, deletePost]);
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 group">

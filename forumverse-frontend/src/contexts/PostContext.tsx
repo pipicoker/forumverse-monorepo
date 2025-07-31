@@ -69,8 +69,18 @@ export const PostContext = createContext<PostContextType | undefined>(undefined)
 export const PostProvider = ({ children }: { children: React.ReactNode }) => {  
   const { isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchPosts = async (params = {}) => {
+  const fetchPosts = async (params = {}, append = false) => {
+    if (loading) return;
+    
+    setLoading(true);
+    try {
+      const page = append ? currentPage + 1 : 1;
+      const queryParams = { ...params, page, limit: 10 };
+      
     const res = await axios.get(`/posts`, { params });
 
     const normalized = res.data.map(post => ({
@@ -79,14 +89,34 @@ export const PostProvider = ({ children }: { children: React.ReactNode }) => {
     downvotes: typeof post.downvotes === 'number' ? post.downvotes : 0,
      userVote: post.userVote ?? null
   }));
-    setPosts(normalized);
+    
+      if (append) {
+        setPosts(prev => [...prev, ...normalized]);
+        setCurrentPage(page);
+      } else {
+        setPosts(normalized);
+        setCurrentPage(1);
+      }
+      
+      setHasMore(normalized.length === 10); // If we got less than limit, no more pages
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const loadMorePosts = async (params = {}) => {
+    if (hasMore && !loading) {
+      await fetchPosts(params, true);
+    }
+  };
 
 
   const createPost = async (data: { title: string; content: string; tags: string[] }) => {
     await axios.post('/posts', data);
-    await fetchPosts();
+    // Optimistically add to beginning instead of refetching all
+    // await fetchPosts();
   };
 
   const bookmarkPost = async (id: string) => {
