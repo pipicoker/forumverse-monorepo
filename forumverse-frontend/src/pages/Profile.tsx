@@ -119,7 +119,7 @@ useEffect(() => {
     }
   }, [id, fetchProfile]);
 
-  if (!profileUser || !userPosts) {
+  if (!profileUser ) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">User not found</h1>
@@ -378,10 +378,10 @@ useEffect(() => {
                 ))}
 
                 {commentHasMore && (
-  <Button onClick={() => fetchUserComments(commentOffset)}>
-    Load More Comments
-  </Button>
-)}
+                  <Button onClick={() => fetchUserComments(commentOffset)}>
+                    Load More Comments
+                  </Button>
+                )}
               </div>
             </TabsContent>
 
