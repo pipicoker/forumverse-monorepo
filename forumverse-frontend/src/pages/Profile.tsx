@@ -39,8 +39,9 @@ const Profile = memo(() => {
   const [postOffset, setPostOffset] = useState(0);
   const [postHasMore, setPostHasMore] = useState(true);
   const postLimit = 3;
-  const [loading, setLoading] = useState(true);
-  // const userComments = profileUser?.comment || [];
+  const [loadingProfile, setLoading] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const [userComments, setUserComments] = useState([])
   const [commentOffset, setCommentOffset] = useState(0);
@@ -56,6 +57,7 @@ const Profile = memo(() => {
 
  const fetchUserPosts = async (offset = 0) => {
   try {
+    setLoadingPosts(true);
     const res = await axios.get(`/user/${id}/posts`, {
       params: { limit: postLimit, offset },
     });
@@ -73,11 +75,14 @@ const Profile = memo(() => {
     setPostHasMore(offset + postLimit < totalCount);
   } catch (err) {
     console.error(err);
+  } finally {
+    setLoadingPosts(false)
   }
 };
 
 const fetchUserComments = async (offset = 0) => {
   try {
+    setLoadingComments(true)
     const res = await axios.get(`/user/${id}/comments`, {
       params: { limit: commentLimit, offset },
     });
@@ -95,22 +100,26 @@ const fetchUserComments = async (offset = 0) => {
     setCommentHasMore(offset + commentLimit < totalCount);
   } catch (err) {
     console.error(err);
+  } finally {
+    setLoadingComments(false)
   }
 };
 
 
-useEffect(() => {
-  if (id) {
-    setLoading(true);
-    fetchUserPosts(0).finally(() => setLoading(false));
+  useEffect(() => {
+  if (!id) return;
+
+  if ( userPosts.length === 0) {
+    fetchUserPosts(0);
   }
-}, [id]);
+}, [activeTab, id]);
 
 useEffect(() => {
-  if (id) {
+  if (userPosts.length > 0 && profileUser && userComments.length == 0 ) {
     fetchUserComments();
   }
-}, [id]);
+}, [userPosts, profileUser]);
+
 
 
   useEffect(() => {
@@ -122,7 +131,9 @@ useEffect(() => {
   if (!profileUser ) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">User not found</h1>
+         <div className="flex justify-center items-center h-[50vh]">
+      <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
+    </div>
         <Link to="/feed">
           <Button variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -328,8 +339,14 @@ useEffect(() => {
 
             <TabsContent value="posts" className="mt-6">
               <div className="space-y-4">
-                {userPosts?.length === 0 ? (
-                  <Card> ... </Card>
+                {loadingPosts ? (
+                   <div className="flex justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
+                  </div>
+                ) : userPosts?.length === 0 ? (
+                  <Card>
+                    {/* Empty state content */}
+                  </Card>
                 ) : (
                   <>
                     {userPosts.map((post, index) => (
@@ -340,8 +357,8 @@ useEffect(() => {
 
                     {postHasMore && (
                       <div className="text-center mt-4">
-                        <Button onClick={() => fetchUserPosts(postOffset)} disabled={loading}>
-                          {loading ? 'Loading...' : 'Load More'}
+                        <Button onClick={() => fetchUserPosts(postOffset)} disabled={loadingPosts}>
+                          {loadingPosts ? 'Loading...' : 'Load More'}
                         </Button>
                       </div>
                     )}
@@ -353,37 +370,48 @@ useEffect(() => {
 
             <TabsContent value="comments" className="mt-6">
               <div className="space-y-4">
-                {userComments.map((comment, index) => (
-                  <Card key={comment.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            Commented on
-                          </span>
-                          <Link to={`/post/1`} className="text-sm font-medium hover:text-primary transition-colors">
-                            {comment.post?.title}
-                          </Link>
-                        </div>
-                        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                          <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
-                          <span>•</span>
-                          <span>{comment._count.votes} votes</span>
-                        </div>
-                      </div>
-                      <p className="text-sm leading-relaxed">{comment.content}</p>
-                    </CardContent>
+                {loadingComments ? (
+                   <div className="flex justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
+                  </div>
+                ) : userComments.length === 0 ? (
+                  <Card>
+                    {/* Empty state for comments */}
                   </Card>
-                ))}
+                ) : (
+                  <>
+                    {userComments.map((comment, index) => (
+                      <Card key={comment.id} className="animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">Commented on</span>
+                              <Link to={`/post/${comment.post?.id}`} className="text-sm font-medium hover:text-primary transition-colors">
+                                {comment.post?.title}
+                              </Link>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                              <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                              <span>•</span>
+                              <span>{comment._count.votes} votes</span>
+                            </div>
+                          </div>
+                          <p className="text-sm leading-relaxed">{comment.content}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
 
-                {commentHasMore && (
-                  <Button onClick={() => fetchUserComments(commentOffset)}>
-                    Load More Comments
-                  </Button>
+                    {commentHasMore && (
+                      <Button onClick={() => fetchUserComments(commentOffset)} disabled={loadingComments}>
+                        {loadingComments ? 'Loading...' : 'Load More Comments'}
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </TabsContent>
+
 
             {isOwnProfile && (
               <TabsContent value="saved" className="mt-6">

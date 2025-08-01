@@ -139,6 +139,9 @@ if (!post || !user) {
     <div className="container mx-auto px-4 py-8 text-center">
       <h1 className="text-2xl font-bold mb-4">Loading post...</h1>
       <p className="text-muted-foreground">Please wait while we fetch the post.</p>
+       <div className="flex justify-center items-center h-[50vh]">
+      <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
+    </div>
     </div>
   );
 }
