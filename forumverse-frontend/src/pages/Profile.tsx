@@ -344,8 +344,13 @@ useEffect(() => {
                     <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
                   </div>
                 ) : userPosts?.length === 0 ? (
-                  <Card>
-                    {/* Empty state content */}
+                   <Card>
+                    <CardContent className="py-12 text-center">
+                      <BookOpen className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground text-sm">
+                        {isOwnProfile ? "You haven't created any posts yet." : `${profileUser.username} has no posts.`}
+                      </p>
+                    </CardContent>
                   </Card>
                 ) : (
                   <>
@@ -376,7 +381,12 @@ useEffect(() => {
                   </div>
                 ) : userComments.length === 0 ? (
                   <Card>
-                    {/* Empty state for comments */}
+                    <CardContent className="py-12 text-center">
+                      <MessageSquare className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground text-sm">
+                        {isOwnProfile ? "You haven't written any comments yet." : `${profileUser.username} has no comments.`}
+                      </p>
+                    </CardContent>
                   </Card>
                 ) : (
                   <>
