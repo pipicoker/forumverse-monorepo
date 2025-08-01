@@ -81,7 +81,13 @@ export const getAllPosts = async (req: Request, res: Response) => {
           }
         } }
       },
-      votes: true, // consider selecting only vote `type` and `userId`
+      votes: {
+        select: {
+          type: true,
+          userId: true
+        }
+      },
+
       _count: {
         select: {
           votes: true
