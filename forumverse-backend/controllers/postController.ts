@@ -70,11 +70,16 @@ export const getAllPosts = async (req: Request, res: Response) => {
           id: true,
           username: true,
           avatar: true,
-          role: true
+          // role: true
         }
       },
       tags: {
-        include: { tag: true }
+        include: { tag: {
+          select: {
+            id: true,
+            name: true
+          }
+        } }
       },
       votes: true, // consider selecting only vote `type` and `userId`
       _count: {
@@ -169,7 +174,7 @@ export const getSinglePost = async(req: Request, res:Response) => {
                 content: true,
                 createdAt: true,
                 updatedAt: true,
-                excerpt: true,
+                // excerpt: true,
                 author: {
                     select: {
                         id: true,
@@ -180,38 +185,13 @@ export const getSinglePost = async(req: Request, res:Response) => {
                 },
                 tags: {
                     include: {
-                        tag: true
+                        tag: {
+                          select: {
+                            name: true
+                          }
+                        }
                     }
                 },
-                // comments: {
-                // include: {
-                //     author: {
-                //     select: {
-                //         id: true,
-                //         username: true,
-                //         avatar: true,
-                //         role: true
-                //     }
-                //     },
-                //     votes: true,
-                //     replies: {
-                //     include: {
-                //         author: {
-                //         select: {
-                //             id: true,
-                //             username: true,
-                //             avatar: true,
-                //             role: true
-                //         }
-                //         },
-                //         votes: true,
-                //     }
-                //     }
-                // },
-                // where: {
-                //     parentId: null
-                // }
-                // },
                 votes: {
                     select: {
                         id: true,
@@ -244,8 +224,6 @@ export const getSinglePost = async(req: Request, res:Response) => {
             else if (vote?.type === 'DOWN') userVote = 'downvote';
         }
 
-    
-
         res.json({
         ...post,
         upvotes,
@@ -257,10 +235,6 @@ export const getSinglePost = async(req: Request, res:Response) => {
         res.status(500).json({ error: 'Server error' });
     }
 }
-
-
-
-
 
 // create post
 export const createPost = async (req: Request, res: Response) => {

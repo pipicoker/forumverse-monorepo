@@ -138,7 +138,7 @@ if (!post || !user) {
   return (
     <div className="container mx-auto px-4 py-8 text-center">
       <h1 className="text-2xl font-bold mb-4">Loading post...</h1>
-      <p className="text-muted-foreground">Please wait while we fetch the post and user profile.</p>
+      <p className="text-muted-foreground">Please wait while we fetch the post.</p>
     </div>
   );
 }
