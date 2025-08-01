@@ -6,7 +6,7 @@ import { set } from 'date-fns';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: (onLogoutComplete?: () => void) => void;
   register: (username: string, email: string, password: string) => Promise<boolean>;
   loading: boolean;
   refreshUser: () => Promise<void>; 
@@ -15,6 +15,7 @@ interface AuthContextType extends AuthState {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     user: null,
@@ -101,16 +102,23 @@ const refreshUser = async () => {
     return true;
   };
 
-  const logout = async () => {
+ 
+ const logout = async (onLogoutComplete?: () => void) => {
+  try {
     await axios.delete(`${API_BASE}/api/auth/logout`);
-    window.location.href = '/';
+  } catch (error) {
+    console.error('Logout failed:', error);
+  } finally {
     localStorage.removeItem('token');
-    localStorage.removeItem('userProfile'); 
+    localStorage.removeItem('userProfile');
     localStorage.removeItem('user');
     setAuthState({ isAuthenticated: false, user: null });
-    toast({ title: 'Logged out successfully', variant: 'default' });
-     // Redirect to home page
-  };
+    toast({ title: 'Logged out successfully' });
+
+    if (onLogoutComplete) onLogoutComplete();
+  }
+};
+
 
   const register = async (username: string, email: string, password: string) => {
     const response = await axios.post(`${API_BASE}/api/auth/signup`, {

@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 
 export const Navbar = () => {
+  const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
   // const { profile, fetchProfile } = useUser();
   const location = useLocation();
@@ -34,6 +36,11 @@ export const Navbar = () => {
         return null;
     }
   };
+
+
+const handleLogout = () => {
+  logout(() => navigate('/'));
+};
 
   if (!isAuthenticated) {
     return (
@@ -142,7 +149,7 @@ export const Navbar = () => {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="cursor-pointer">
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
