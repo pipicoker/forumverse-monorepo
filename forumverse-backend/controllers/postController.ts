@@ -64,7 +64,12 @@ export const getAllPosts = async (req: Request, res: Response) => {
     orderBy,
     skip: (Number(page) - 1) * Number(limit),
     take: Number(limit),
-    include: {
+    select: {
+      id: true,
+      title: true,
+      excerpt: true,
+      content: true,
+      createdAt: true,
       author: {
         select: {
           id: true,
@@ -74,12 +79,9 @@ export const getAllPosts = async (req: Request, res: Response) => {
         }
       },
       tags: {
-        include: { tag: {
-          select: {
-            id: true,
-            name: true
-          }
-        } }
+       select: {
+        tag: true
+       }
       },
       votes: {
         select: {
@@ -190,13 +192,9 @@ export const getSinglePost = async(req: Request, res:Response) => {
                     }
                 },
                 tags: {
-                    include: {
-                        tag: {
-                          select: {
-                            name: true
-                          }
-                        }
-                    }
+                  select: {
+                    tag: true
+                  }
                 },
                 votes: {
                     select: {

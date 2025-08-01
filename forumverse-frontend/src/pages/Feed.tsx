@@ -15,6 +15,7 @@ import { usePosts } from '@/hooks/usePosts';
 import { mockTags } from '@/data/mockData'; 
 import { Link } from 'react-router-dom';
 import axios from '@/lib/axios';
+import debounce from 'lodash/debounce';
 
 
 export default function Feed() {
@@ -28,12 +29,28 @@ export default function Feed() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const didMountRef = useRef(false);
+  const isInitialLoad = loading && page === 1;
+  const isLoadMore = loading && page > 1;
 
-  
+
+  const debouncedSetSearch = useMemo(
+  () => debounce((value: string) => {
+    setSearchQuery(value);
+  }, 500), []
+);
+
 useEffect(() => {
-  if (page === 1) return; // skip initial load, it's handled separately
-  loadPosts();
+  if (posts.length === 0) {
+    loadPosts(true);
+  }
+}, []);
+
+useEffect(() => {
+  if (page > 1) {
+    loadPosts(false);
+  }
 }, [page]);
+
 
 
 useEffect(() => {
@@ -47,21 +64,52 @@ useEffect(() => {
   }
 }, [searchQuery, selectedTags, sortBy]);
 
+const previousFilters = useRef({
+  searchQuery,
+  selectedTags,
+  sortBy,
+});
+
+useEffect(() => {
+  const filtersChanged =
+    previousFilters.current.searchQuery !== searchQuery ||
+    previousFilters.current.sortBy !== sortBy ||
+    JSON.stringify(previousFilters.current.selectedTags) !== JSON.stringify(selectedTags);
+
+  if (didMountRef.current && filtersChanged) {
+    previousFilters.current = { searchQuery, selectedTags, sortBy };
+    setPage(1);
+    setHasMore(true);
+    setPosts([]);
+    loadPosts(true);
+  } else {
+    didMountRef.current = true;
+  }
+}, [searchQuery, selectedTags, sortBy]);
+
 
 const loadPosts = async (isInitial = false) => {
-  if (!hasMore || loading) return;
+  if (loading) return;
+
+  if (isInitial) {
+    setPosts([]);
+    setPage(1);
+    setHasMore(true);
+  }
+  
 
   setLoading(true);
+
   try {
     const params = {
-      page: isInitial ? 1 : page,
+      page,
       limit,
-      search: searchQuery,
+      search: searchQuery.trim(),
       tags: selectedTags.map(t => t.tag.name).join(','),
       sort: sortBy,
     };
 
-    const response = await fetchPosts(params, !isInitial);
+    const response = await fetchPosts(params, true);
 
     if (response.length < limit) {
       setHasMore(false);
@@ -69,8 +117,10 @@ const loadPosts = async (isInitial = false) => {
   } catch (err) {
     console.error(err);
   }
+
   setLoading(false);
 };
+
 
 // Call this manually when you want to load next page
 const handleLoadMore = () => {
@@ -79,43 +129,10 @@ const handleLoadMore = () => {
   }
 };
 
-
-
   
 
-  const filteredAndSortedPosts = useMemo(() => {
-    const filtered = posts?.filter(post => {
-      const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           post.author.username.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesTags = selectedTags.length === 0 || 
-                         selectedTags.some(selectedTag => 
-                           post.tags.some(postTag => postTag.tag.name === selectedTag.tag.name)
-                         );
-      
-      return matchesSearch && matchesTags;
-    });
+  const filteredAndSortedPosts = posts;
 
-    // Sort posts
-    switch (sortBy) {
-      case 'popular':
-        filtered.sort((a, b) => (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes));
-        break;
-      case 'trending':
-        // Simple trending algorithm based on votes and recency
-        filtered.sort((a, b) => {
-          const aScore = (a.upvotes - a.downvotes) / Math.pow((Date.now() - new Date(a.createdAt).getTime()) / (1000 * 60 * 60) + 1, 1.5);
-          const bScore = (b.upvotes - b.downvotes) / Math.pow((Date.now() - new Date(b.createdAt).getTime()) / (1000 * 60 * 60) + 1, 1.5);
-          return bScore - aScore;
-        });
-        break;
-      default: // newest
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-
-    return filtered;
-  }, [searchQuery, selectedTags, sortBy, posts]);
 
   const toggleTag = (tagName: string) => {
     const tagObj = { tag: { id: tagName, name: tagName } };
@@ -165,10 +182,11 @@ const handleLoadMore = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Search posts, users, or topics..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  defaultValue={searchQuery}
+                  onChange={(e) => debouncedSetSearch(e.target.value)}
                   className="pl-10"
                 />
+
               </div>
               <Select value={sortBy} onValueChange={(value: 'newest' | 'popular' | 'trending') => setSortBy(value)}>
                 <SelectTrigger className="w-full sm:w-48">
@@ -229,36 +247,47 @@ const handleLoadMore = () => {
             )}
           </div>
 
-          {/* Posts */}
-          <div className="space-y-4">
-            {filteredAndSortedPosts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-muted-foreground mb-4">
-                  No posts found matching your criteria
-                </div>
-                <Button variant="outline" onClick={() => {
-                  setSearchQuery('');
-                  setSelectedTags([]);
-                }}>
-                  Clear filters
-                </Button>
+         {/* Posts */}
+        <div className="space-y-4">
+          {loading && filteredAndSortedPosts.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" />
+            </div>
+          ) : filteredAndSortedPosts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-4">
+                No posts found matching your criteria
               </div>
-            ) : (
-              filteredAndSortedPosts.map((post, index) => (
-                <div key={post.id} style={{ animationDelay: `${index * 0.1}s` }}>
-                  <PostCard post={post} />
-                </div>
-              ))
-            )}
-          </div>
-
-          {hasMore && !loading && (
-            <div className="text-center mt-6">
-              <Button onClick={() => setPage(prev => prev + 1)} disabled={loading}>
-                {loading ? 'Loading...' : 'Load More'}
+              <Button variant="outline" onClick={() => {
+                setSearchQuery('');
+                setSelectedTags([]);
+                setPage(1);
+              }}>
+                Clear filters
               </Button>
             </div>
+          ) : (
+            filteredAndSortedPosts.map((post, index) => (
+              <div key={post.id} style={{ animationDelay: `${index * 0.1}s` }}>
+                <PostCard post={post} />
+              </div>
+            ))
           )}
+        </div>
+
+
+         {hasMore && (
+          <div className="text-center mt-6">
+            <Button onClick={handleLoadMore} disabled={loading}>
+              {isLoadMore ? (
+                <div className="w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin" />
+              ) : (
+                'Load More'
+              )}
+            </Button>
+          </div>
+        )}
+
 
         </div>
 
