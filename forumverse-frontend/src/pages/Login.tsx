@@ -45,9 +45,7 @@ export default function Login() {
   };
 
   const demoAccounts = [
-    { email: 'tech@example.com', role: 'Admin', username: 'techguru42' },
-    { email: 'design@example.com', role: 'Moderator', username: 'designlover' },
-    { email: 'code@example.com', role: 'User', username: 'codewarrior' },
+    { email: 'sarahekere79@gmail.com', role: 'User', username: 'coker' },
   ];
 
   return (
@@ -158,7 +156,7 @@ export default function Login() {
                   className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
                   onClick={() => {
                     setEmail(account.email);
-                    setPassword('demo123');
+                    setPassword('sophia123');
                   }}
                 >
                   <div>
@@ -172,7 +170,7 @@ export default function Login() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              Password for all demo accounts: <code className="bg-muted px-1 rounded">demo123</code>
+              Password for all demo accounts: <code className="bg-muted px-1 rounded">sophia123</code>
             </p>
           </CardContent>
         </Card>
