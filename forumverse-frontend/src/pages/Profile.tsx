@@ -115,7 +115,7 @@ const fetchUserComments = async (offset = 0) => {
 }, [activeTab, id]);
 
 useEffect(() => {
-  if (userPosts.length > 0 && profileUser && userComments.length == 0 ) {
+  if ( profileUser && userComments.length == 0 ) {
     fetchUserComments();
   }
 }, [userPosts, profileUser]);
