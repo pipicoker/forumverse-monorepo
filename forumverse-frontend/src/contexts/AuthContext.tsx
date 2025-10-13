@@ -22,8 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = import.meta.env.VITE_BACKEND_BASE_URL;
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user')
@@ -73,7 +71,7 @@ const refreshUser = async () => {
       return;
     }
 
-    const response = await axios.get(`${API_BASE}/api/auth/current-user`, {
+    const response = await axios.get('/auth/current-user', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -95,17 +93,23 @@ const refreshUser = async () => {
 
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const response = await axios.post(`${API_BASE}/api/auth/login`, { email, password });
-    setAuthState({ isAuthenticated: true, user: response.data.user as User });
-    localStorage.setItem('token', response.data.token);
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    return true;
+    try {
+      const response = await axios.post('/auth/login', { email, password });
+      setAuthState({ isAuthenticated: true, user: response.data.user as User });
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      return true;
+    } catch (error: any) {
+      console.error('Login error:', error.response?.data || error);
+      throw error;
+    }
   };
 
  
  const logout = async (onLogoutComplete?: () => void) => {
   try {
-    await axios.delete(`${API_BASE}/api/auth/logout`);
+    await axios.delete('/auth/logout');
   } catch (error) {
     console.error('Logout failed:', error);
   } finally {
@@ -121,7 +125,7 @@ const refreshUser = async () => {
 
 
   const register = async (username: string, email: string, password: string) => {
-    const response = await axios.post(`${API_BASE}/api/auth/signup`, {
+    const response = await axios.post('/auth/signup', {
       username,
       email,
       password,

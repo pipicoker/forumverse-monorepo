@@ -16,7 +16,7 @@ const VerifyEmailSent = () => {
 
     setResending(true);
     try {
-      await axios.post(`${import.meta.env.VITE_BACKEND_BASE_URL}/api/auth/resend-verification`, { email });
+      await axios.post('/auth/resend-verification', { email });
       toast({ title: 'Verification email resent', description: 'Check your inbox.' });
     } catch (error) {
       toast({

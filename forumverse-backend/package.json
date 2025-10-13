@@ -7,7 +7,11 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only index.ts",
     "build": "npm ci && npx prisma generate && npx tsc",
-    "postinstall": "npx prisma generate || true"
+    "postinstall": "npx prisma generate || true",
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

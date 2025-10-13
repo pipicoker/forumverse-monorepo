@@ -150,6 +150,7 @@ export const resendVerificaionEmail = async (req: Request, res:Response) => {
 
 export const login = async(req:Request, res:Response) => {
     try {
+        console.log('Login request body:', req.body);
         const {email, password} = loginSchema.parse(req.body)
 
         //find user
@@ -185,7 +186,8 @@ export const login = async(req:Request, res:Response) => {
     res.json({ user: userWithoutPassword, token });
 
     } catch (error) {
-        res.status(400).json({ error: 'Invalid input' });
+        console.error('Login error:', error);
+        res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid input' });
     }
 }
 
