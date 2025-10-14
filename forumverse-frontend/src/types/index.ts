@@ -62,3 +62,28 @@ export interface ReportReason {
   label: string;
   description: string;
 }
+
+export type NotificationType = 
+  | 'POST_VOTE' 
+  | 'COMMENT_VOTE' 
+  | 'POST_COMMENT' 
+  | 'COMMENT_REPLY' 
+  | 'POST_SAVED';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  message: string;
+  read: boolean;
+  recipientId: string;
+  triggererId?: string;
+  postId?: string;
+  commentId?: string;
+  triggerer?: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}

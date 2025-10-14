@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProvider } from "./contexts/UserContext";
 import { PostProvider } from "./contexts/PostContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { useAuth } from "./hooks/useAuth";
 import { useUser } from "./hooks/useUser";
 import { Navbar } from "@/components/Navbar";
@@ -48,10 +49,12 @@ const AppContent = () => {
 
   return (
     <Routes>
+      <Route path="/" element={<Feed />} />
       <Route path="/feed" element={<Feed />} />
       <Route path="/create" element={<CreatePost />} />
       <Route path="/post/:id" element={<PostDetail />} />
       <Route path="/profile/:id" element={<Profile />} />
+      <Route path="*" element={<Feed />} />
     </Routes>
   );
 
@@ -62,22 +65,23 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <UserProvider>
-          <PostProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <div className="min-h-screen bg-background">
-                <Navbar />
-                <main className="container mx-auto px-4 py-8">
-                  <AppContent />  
-                </main>
-               
-              </div>
-            </BrowserRouter>
-          </PostProvider>
-        </UserProvider>
-        
+        <NotificationProvider>
+          <UserProvider>
+            <PostProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <div className="min-h-screen bg-background">
+                  <Navbar />
+                  <main className="container mx-auto px-4 py-8">
+                    <AppContent />  
+                  </main>
+                 
+                </div>
+              </BrowserRouter>
+            </PostProvider>
+          </UserProvider>
+        </NotificationProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

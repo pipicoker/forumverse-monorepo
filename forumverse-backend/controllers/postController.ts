@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { io } from '../index'; // Import the socket.io instance
+import { createNotification } from './notificationController';
 
 import { createPostSchema } from '../middlewares/validator';
 
@@ -337,14 +338,34 @@ export const bookmarkPost = async (req: Request, res: Response) => {
             title: true,
             content: true,
             createdAt: true,
-            isBookmarked: true
+            isBookmarked: true,
+            authorId: true,
+          },
+        },
+        user: {
+          select: {
+            username: true,
           },
         },
       },
     });
 
+    // Create notification for post author
+    const notification = await createNotification(
+      'POST_SAVED',
+      `${bookmark.user.username} bookmarked your post`,
+      bookmark.post.authorId,
+      userId,
+      postId
+    );
+
     // Emit a socket event for new bookmark
     io.emit('postBookmarked', bookmark);
+
+    // Emit notification event if created
+    if (notification) {
+      io.to(bookmark.post.authorId).emit('notification', notification);
+    }
 
     res.status(201).json(bookmark);
   } catch (error) {
@@ -424,6 +445,32 @@ export const votePost = async (req: Request, res: Response) => {
             data: { type: vote },
           });
           console.log(`Vote updated from ${existingVote.type} to ${vote}`);
+          
+          // Get post author for notification
+          const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: { authorId: true, title: true },
+          });
+
+          if (post) {
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+              select: { username: true },
+            });
+
+            const notification = await createNotification(
+              'POST_VOTE',
+              `${user?.username} ${vote === 'UP' ? 'upvoted' : 'downvoted'} your post`,
+              post.authorId,
+              userId,
+              postId
+            );
+
+            if (notification) {
+              io.to(post.authorId).emit('notification', notification);
+            }
+          }
+
           io.emit('postVoted', { postId, voteType: vote, userId });
           return res.status(200).json({ message: `Vote changed to ${vote}` });
         } else {
@@ -445,6 +492,32 @@ export const votePost = async (req: Request, res: Response) => {
           },
         });
         console.log(`New vote created: ${vote}`);
+
+        // Get post author for notification
+        const post = await prisma.post.findUnique({
+          where: { id: postId },
+          select: { authorId: true, title: true },
+        });
+
+        if (post) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true },
+          });
+
+          const notification = await createNotification(
+            'POST_VOTE',
+            `${user?.username} ${vote === 'UP' ? 'upvoted' : 'downvoted'} your post`,
+            post.authorId,
+            userId,
+            postId
+          );
+
+          if (notification) {
+            io.to(post.authorId).emit('notification', notification);
+          }
+        }
+
         io.emit('postVoted', { postId, voteType: vote, userId });
         return res.status(201).json({ message: `Post ${vote === 'UP' ? 'upvoted' : 'downvoted'}` });
       }

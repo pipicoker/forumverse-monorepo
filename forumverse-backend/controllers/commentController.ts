@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { createCommentSchema } from '../middlewares/validator';
 import { io } from '../index';
+import { createNotification } from './notificationController';
 
 const prisma = new PrismaClient();
 
@@ -151,6 +152,52 @@ export const createComment = async (req: Request, res: Response) => {
                 }
             }
         })
+
+        // Create notification for post author or parent comment author
+        if (parentId) {
+            // Reply to a comment
+            const parentComment = await prisma.comment.findUnique({
+                where: { id: parentId },
+                select: { authorId: true },
+            });
+
+            if (parentComment) {
+                const notification = await createNotification(
+                    'COMMENT_REPLY',
+                    `${comment.author.username} replied to your comment`,
+                    parentComment.authorId,
+                    userId,
+                    postId,
+                    comment.id
+                );
+
+                if (notification) {
+                    io.to(parentComment.authorId).emit('notification', notification);
+                }
+            }
+        } else {
+            // Comment on a post
+            const post = await prisma.post.findUnique({
+                where: { id: postId },
+                select: { authorId: true },
+            });
+
+            if (post) {
+                const notification = await createNotification(
+                    'POST_COMMENT',
+                    `${comment.author.username} commented on your post`,
+                    post.authorId,
+                    userId,
+                    postId,
+                    comment.id
+                );
+
+                if (notification) {
+                    io.to(post.authorId).emit('notification', notification);
+                }
+            }
+        }
+
         // Emit a socket event for new comment
         io.emit('commentCreated', comment); 
 
@@ -254,6 +301,33 @@ export const voteComment = async (req: Request, res: Response) => {
             where: { id: existingVote.id },
             data: { type: vote },
           });
+
+          // Get comment author for notification
+          const comment = await prisma.comment.findUnique({
+            where: { id: commentId },
+            select: { authorId: true, postId: true },
+          });
+
+          if (comment) {
+            const user = await prisma.user.findUnique({
+              where: { id: userId },
+              select: { username: true },
+            });
+
+            const notification = await createNotification(
+              'COMMENT_VOTE',
+              `${user?.username} ${vote === 'UP' ? 'upvoted' : 'downvoted'} your comment`,
+              comment.authorId,
+              userId,
+              comment.postId,
+              commentId
+            );
+
+            if (notification) {
+              io.to(comment.authorId).emit('notification', notification);
+            }
+          }
+
           io.emit('commentVoted', { commentId, voteType: vote, userId });
           return res.status(200).json({ message: `Vote changed to ${vote}` });
         } else {
@@ -273,6 +347,33 @@ export const voteComment = async (req: Request, res: Response) => {
             type: vote,
           },
         });
+
+        // Get comment author for notification
+        const comment = await prisma.comment.findUnique({
+          where: { id: commentId },
+          select: { authorId: true, postId: true },
+        });
+
+        if (comment) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true },
+          });
+
+          const notification = await createNotification(
+            'COMMENT_VOTE',
+            `${user?.username} ${vote === 'UP' ? 'upvoted' : 'downvoted'} your comment`,
+            comment.authorId,
+            userId,
+            comment.postId,
+            commentId
+          );
+
+          if (notification) {
+            io.to(comment.authorId).emit('notification', notification);
+          }
+        }
+
         io.emit('commentVoted', { commentId, voteType: vote, userId });
         return res.status(201).json({ message: `Comment ${vote === 'UP' ? 'upvoted' : 'downvoted'}` });
       }

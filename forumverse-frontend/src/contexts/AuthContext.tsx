@@ -50,8 +50,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     response => response,
     async error => {
       if (error.response?.status === 401) {
-        // Token expired or invalid
-        await logout();
+        // Only logout on 401 from auth endpoints, not from other endpoints
+        const url = error.config?.url || '';
+        if (url.includes('/auth/') || url.includes('/current-user')) {
+          // Token expired or invalid
+          await logout();
+        }
       }
       return Promise.reject(error);
     }

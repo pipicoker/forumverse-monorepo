@@ -244,7 +244,10 @@ export default function CreatePost() {
                 <div className="flex gap-4 pt-4">
                   <Button type="submit" disabled={isPublishing} className="flex-1">
                     {isPublishing ? (
-                      'Publishing...'
+                      <>
+                        <span className="mr-2 h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
+                        Publishing...
+                      </>
                     ) : (
                       <>
                         <Send className="w-4 h-4 mr-2" />

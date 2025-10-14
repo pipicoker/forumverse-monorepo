@@ -23,11 +23,13 @@ model User {
   joinDate       DateTime  @default(now())
   reputation     Int       @default(0)
 
-  posts      Post[]
-  comment    Comment[]
-  votes      Vote[]
-  reports    Report[]
-  savedPosts SavedPost[]
+  posts         Post[]
+  comment       Comment[]
+  votes         Vote[]
+  reports       Report[]
+  savedPosts    SavedPost[]
+  notifications Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationTriggerer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,6 +146,26 @@ model SavedPost {
   @@map("saved_posts")
 }
 
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  message     String
+  read        Boolean          @default(false)
+  recipientId String
+  triggererId String?
+  postId      String?
+  commentId   String?
+
+  recipient User  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  triggerer User? @relation("NotificationTriggerer", fields: [triggererId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([recipientId])
+  @@map("notifications")
+}
+
 enum Role {
   USER
   MODERATOR
@@ -160,4 +182,12 @@ enum ReportStatus {
   REVIEWED
   RESOLVED
   DISMISSED
+}
+
+enum NotificationType {
+  POST_VOTE
+  COMMENT_VOTE
+  POST_COMMENT
+  COMMENT_REPLY
+  POST_SAVED
 }

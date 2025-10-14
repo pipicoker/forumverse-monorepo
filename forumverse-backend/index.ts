@@ -15,6 +15,7 @@ import postRoutes from './routes/posts'
 import commentRoutes from './routes/comments';
 import reportRoutes from './routes/reports';
 import userRoutes from './routes/users';
+import notificationRoutes from './routes/notifications';
 
 
 const app = express()
@@ -33,6 +34,18 @@ const io = new Server(httpServer, {
 // Socket.IO connection listener
 io.on('connection', (socket) => {
   console.log(`🟢 New client connected: ${socket.id}`);
+
+  // Join user to their personal room for notifications
+  socket.on('join', (userId: string) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined their notification room`);
+  });
+
+  // Leave user's personal room
+  socket.on('leave', (userId: string) => {
+    socket.leave(userId);
+    console.log(`User ${userId} left their notification room`);
+  });
 
   socket.on('disconnect', () => {
     console.log(`🔴 Client disconnected: ${socket.id}`);
@@ -67,6 +80,7 @@ app.use('/api/posts', postRoutes)
 app.use('/api/comments', commentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => {
   res.send('🟢 Backend is running!');

@@ -82,3 +82,4 @@ export const CountUpAnimation = ({ target, duration = 2000 }: CountUpAnimationPr
     </motion.span>
   );
 };
+

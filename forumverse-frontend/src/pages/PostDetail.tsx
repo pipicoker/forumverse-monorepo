@@ -126,6 +126,8 @@ const handleDeleteComment = async (commentId: string) => {
   const [isBookmarked, setIsBookmarked] = useState(false);  
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportTarget, setReportTarget] = useState<{type: 'post' | 'comment', id: string, title: string} | null>(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isSubmittingReply, setIsSubmittingReply] = useState<string | null>(null);
 
   useEffect(() => {
   if (post) {
@@ -158,72 +160,67 @@ if (!post || !user) {
   setPost(res.data);
   };
 
-  const handleCommentSubmit = () => {
-    if (!newComment.trim()) return;
+  const handleCommentSubmit = async () => {
+    if (!newComment.trim() || isSubmittingComment) return;
     
-    const comment: Comment = {
-      id: Date.now().toString(),
-      content: newComment,
-      author: user!,
-      postId: post.id,
-      createdAt: new Date().toISOString(),
-      replies: [],
-      upvotes: 0,
-      downvotes: 0,
-    };
+    setIsSubmittingComment(true);
 
-    //create comment using API
-    axios.post(`/comments`, {
-      content: newComment,
-      postId: post.id,
-    })    
-    .then(res => {
+    try {
+      const res = await axios.post(`/comments`, {
+        content: newComment,
+        postId: post.id,
+      });
+      
       setComments(prev => [...prev, res.data]);
       setNewComment('');
       toast({
         title: "Comment posted",
         description: "Your comment has been added to the discussion.",
       });
-    })
+    } catch (err) {
+      console.error('Failed to post comment:', err);
+      toast({
+        title: "Error",
+        description: "Failed to post your comment. Please try again.",
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmittingComment(false);
+    }
   };
 
-  const handleReplySubmit = (parentId: string, content: string) => {
-    if (!content.trim()) return;
+  const handleReplySubmit = async (parentId: string, content: string) => {
+    if (!content.trim() || isSubmittingReply === parentId) return;
 
-    //create reply using API
-    axios.post( `/comments`, {
-      content,
-      postId: post.id,
-      parentId: parentId,
-    })
-    .then(res => {
+    setIsSubmittingReply(parentId);
+
+    try {
+      const res = await axios.post(`/comments`, {
+        content,
+        postId: post.id,
+        parentId: parentId,
+      });
+      
       setComments(prev => prev.map(comment => 
         comment.id === parentId 
           ? { ...comment, replies: [...comment.replies, res.data] }
           : comment
       ));
+      
       toast({
-      title: "Reply posted",
-      description: "Your reply has been added.",
-    });
-    })
-    .catch(err => {
+        title: "Reply posted",
+        description: "Your reply has been added.",
+      });
+    } catch (err) {
       console.error('Failed to post reply:', err);
       toast({
         title: "Error",
         description: "Failed to post your reply. Please try again.",
         variant: 'destructive',
       });
-    });
-
-    // setComments(prev => prev.map(comment => 
-    //   comment.id === parentId 
-    //     ? { ...comment, replies: [...comment.replies, reply] }
-    
-    toast({
-      title: "Reply posted",
-      description: "Your reply has been added.",
-    });
+    } finally {
+      setIsSubmittingReply(null);
+    }
   };
 
   const handleReport = (type: 'post' | 'comment', id: string, title: string) => {
@@ -377,9 +374,16 @@ if (!post || !user) {
                       setLocalReplyContent('');
                       setReplyingTo(null);
                     }}
-                    disabled={!localReplyContent.trim()}
+                    disabled={!localReplyContent.trim() || isSubmittingReply === comment.id}
                   >
-                    Post Reply
+                    {isSubmittingReply === comment.id ? (
+                      <>
+                        <span className="mr-2 h-3 w-3 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
+                        Posting...
+                      </>
+                    ) : (
+                      'Post Reply'
+                    )}
                   </Button>
                   <Button 
                     size="sm" 
@@ -388,6 +392,7 @@ if (!post || !user) {
                       setReplyingTo(null);
                       setLocalReplyContent('');
                     }}
+                    disabled={isSubmittingReply === comment.id}
                   >
                     Cancel
                   </Button>
@@ -565,9 +570,16 @@ if (!post || !user) {
                     </p>
                     <Button 
                       onClick={handleCommentSubmit}
-                      disabled={!newComment.trim()}
+                      disabled={!newComment.trim() || isSubmittingComment}
                     >
-                      Post Comment
+                      {isSubmittingComment ? (
+                        <>
+                          <span className="mr-2 h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin inline-block" />
+                          Posting...
+                        </>
+                      ) : (
+                        'Post Comment'
+                      )}
                     </Button>
                   </div>
                 </div>

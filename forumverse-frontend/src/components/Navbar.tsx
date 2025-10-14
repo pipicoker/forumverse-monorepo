@@ -13,9 +13,10 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Menu, Bell, Settings, LogOut, User, Shield } from 'lucide-react';
+import { Search, Plus, Menu, Settings, LogOut, User, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 
 export const Navbar = () => {
   const navigate = useNavigate();
@@ -110,9 +111,7 @@ const handleLogout = () => {
             </Button>
           </Link>
 
-          <Button size="icon" variant="ghost">
-            <Bell className="w-5 h-5" />
-          </Button>
+          <NotificationDropdown />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
