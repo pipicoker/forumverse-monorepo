@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Menu, Settings, LogOut, User, Shield } from 'lucide-react';
+import { Search, Plus, Settings, LogOut, User, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
@@ -154,10 +154,6 @@ const handleLogout = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Button size="icon" variant="ghost" className="md:hidden">
-            <Menu className="w-5 h-5" />
-          </Button>
         </div>
       </div>
     </nav>
