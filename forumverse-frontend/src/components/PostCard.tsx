@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { usePosts } from '@/hooks/usePosts';
 import { useAuth } from '@/hooks/useAuth';
 import {Post} from '@/contexts/PostContext'
+import socket from '@/lib/socket';
 
 // Lazy loading image component
 const LazyImage = memo(({ src, alt, className }: { src: string; alt: string; className?: string }) => {
@@ -59,8 +60,10 @@ interface PostCardProps {
 
 export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
   const {deletePost} = usePosts();
-  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [userVote, setUserVote] = useState<'UP' | 'DOWN' | null>(
+    post.userVote === 'UP' || post.userVote === 'DOWN' ? post.userVote : null
+  );
+  const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [localVotes, setLocalVotes] = useState({
     upvotes: post.upvotes,
@@ -70,11 +73,64 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
   const { bookmarkPost, unbookmarkPost, votePost } = usePosts();
   const { user } = useAuth();
 
-  const handleVote = async (voteType: 'up' | 'down') => {
+  // Sync with prop changes
+  useEffect(() => {
+    setUserVote(post.userVote === 'UP' || post.userVote === 'DOWN' ? post.userVote : null);
+    setIsBookmarked(post.isBookmarked || false);
+    setLocalVotes({
+      upvotes: post.upvotes,
+      downvotes: post.downvotes
+    });
+  }, [post]);
+
+  // Realtime vote updates
+  useEffect(() => {
+    const handlePostVoted = (data: { postId: string; voteType: 'UP' | 'DOWN'; userId: string }) => {
+      if (data.postId === post.id) {
+        // Refetch the actual vote counts from the post data
+        // The optimistic update handles current user, this handles other users
+        if (data.userId !== user?.id) {
+          setLocalVotes(prev => {
+            const newVotes = { ...prev };
+            if (data.voteType === 'UP') {
+              newVotes.upvotes = prev.upvotes + 1;
+            } else {
+              newVotes.downvotes = prev.downvotes + 1;
+            }
+            return newVotes;
+          });
+        }
+      }
+    };
+
+    const handlePostUnvoted = (data: { postId: string; userId: string }) => {
+      if (data.postId === post.id && data.userId !== user?.id) {
+        // Could decrease count, but safer to refetch or ignore for other users
+      }
+    };
+
+    socket.on('postVoted', handlePostVoted);
+    socket.on('postUnvoted', handlePostUnvoted);
+
+    return () => {
+      socket.off('postVoted', handlePostVoted);
+      socket.off('postUnvoted', handlePostUnvoted);
+    };
+  }, [post.id, user?.id]);
+
+  const handleVote = async (voteType: 'UP' | 'DOWN') => {
     if (!user) return;
 
-    const newVote = userVote === voteType ? null : voteType;
     const oldVote = userVote;
+    let newVote: 'UP' | 'DOWN' | null;
+    
+    // If clicking the same vote, remove it (toggle off)
+    if (userVote === voteType) {
+      newVote = null;
+    } else {
+      // Otherwise, switch to the new vote type (or add if no vote exists)
+      newVote = voteType;
+    }
     
     // Optimistic update
     setUserVote(newVote);
@@ -82,19 +138,19 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
       let newUpvotes = prev.upvotes;
       let newDownvotes = prev.downvotes;
       
-      // Remove old vote
-      if (oldVote === 'up') newUpvotes--;
-      if (oldVote === 'down') newDownvotes--;
+      // Remove old vote count
+      if (oldVote === 'UP') newUpvotes--;
+      if (oldVote === 'DOWN') newDownvotes--;
       
-      // Add new vote
-      if (newVote === 'up') newUpvotes++;
-      if (newVote === 'down') newDownvotes++;
+      // Add new vote count
+      if (newVote === 'UP') newUpvotes++;
+      if (newVote === 'DOWN') newDownvotes++;
       
       return { upvotes: newUpvotes, downvotes: newDownvotes };
     });
 
     try {
-      await votePost(post.id, newVote ? newVote.toUpperCase() as 'UP' | 'DOWN' : 'remove');
+      await votePost(post.id, newVote || 'remove');
     } catch (error) {
       // Revert on error
       setUserVote(oldVote);
@@ -234,8 +290,8 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleVote('up')}
-                className={`p-1 h-8 ${userVote === 'up' ? 'text-green-600' : 'text-muted-foreground'}`}
+                onClick={() => handleVote('UP')}
+                className={`p-1 h-8 ${userVote === 'UP' ? 'text-green-600' : 'text-muted-foreground'}`}
               >
                 <ArrowUp className="w-4 h-4" />
                 <span className="ml-1 text-sm">{localVotes.upvotes}</span>
@@ -244,8 +300,8 @@ export const PostCard = memo(({ post, compact = false }: PostCardProps) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleVote('down')}
-                className={`p-1 h-8 ${userVote === 'down' ? 'text-red-600' : 'text-muted-foreground'}`}
+                onClick={() => handleVote('DOWN')}
+                className={`p-1 h-8 ${userVote === 'DOWN' ? 'text-red-600' : 'text-muted-foreground'}`}
               >
                 <ArrowDown className="w-4 h-4" />
                 <span className="ml-1 text-sm">{localVotes.downvotes}</span>

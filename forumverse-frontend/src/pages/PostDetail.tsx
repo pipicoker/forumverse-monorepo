@@ -37,6 +37,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { usePosts } from '@/hooks/usePosts';
+import socket from '@/lib/socket';
 
 export default function PostDetail() {
   const navigate = useNavigate();
@@ -136,6 +137,39 @@ const handleDeleteComment = async (commentId: string) => {
   }
 }, [post]);
 
+// Realtime vote updates for the post
+useEffect(() => {
+  if (!post) return;
+
+  const handlePostVoted = (data: { postId: string; voteType: 'UP' | 'DOWN'; userId: string }) => {
+    if (data.postId === post.id && data.userId !== user?.id) {
+      setVotes(prev => {
+        const newVotes = { ...prev };
+        if (data.voteType === 'UP') {
+          newVotes.upvotes = prev.upvotes + 1;
+        } else {
+          newVotes.downvotes = prev.downvotes + 1;
+        }
+        return newVotes;
+      });
+    }
+  };
+
+  const handlePostUnvoted = (data: { postId: string; userId: string }) => {
+    if (data.postId === post.id && data.userId !== user?.id) {
+      // Could decrease count, but safer to refetch
+    }
+  };
+
+  socket.on('postVoted', handlePostVoted);
+  socket.on('postUnvoted', handlePostUnvoted);
+
+  return () => {
+    socket.off('postVoted', handlePostVoted);
+    socket.off('postUnvoted', handlePostUnvoted);
+  };
+}, [post, user?.id]);
+
 if (!post || !user) {
   return (
     <div className="container mx-auto px-4 py-8 text-center">
@@ -150,14 +184,46 @@ if (!post || !user) {
 
 
   const handleVote = async (voteType: 'UP' | 'DOWN') => {
-    if (post.userVote === voteType) {
-      await votePost(post.id, 'remove');
+    const oldVote = userVote;
+    let newVote: 'UP' | 'DOWN' | null;
+    
+    // If clicking the same vote, remove it (toggle off)
+    if (userVote === voteType) {
+      newVote = null;
     } else {
-      await votePost(post.id, voteType);
+      // Otherwise, switch to the new vote type
+      newVote = voteType;
     }
-    // Refetch post to update votes and userVote
-  const res = await axios.get(`/posts/${post.id}`);
-  setPost(res.data);
+    
+    // Optimistic update
+    setUserVote(newVote);
+    setVotes(prev => {
+      let newUpvotes = prev.upvotes;
+      let newDownvotes = prev.downvotes;
+      
+      // Remove old vote count
+      if (oldVote === 'UP') newUpvotes--;
+      if (oldVote === 'DOWN') newDownvotes--;
+      
+      // Add new vote count
+      if (newVote === 'UP') newUpvotes++;
+      if (newVote === 'DOWN') newDownvotes++;
+      
+      return { upvotes: newUpvotes, downvotes: newDownvotes };
+    });
+
+    try {
+      await votePost(post.id, newVote || 'remove');
+    } catch (error) {
+      // Revert on error
+      setUserVote(oldVote);
+      setVotes({ upvotes: post.upvotes, downvotes: post.downvotes });
+      toast({
+        title: "Error",
+        description: "Failed to update vote. Please try again.",
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCommentSubmit = async () => {
@@ -242,29 +308,84 @@ if (!post || !user) {
     setCommentVotes({ upvotes: comment.upvotes, downvotes: comment.downvotes });
   }, [comment]);
 
+  // Realtime vote updates for comments
+  useEffect(() => {
+    const handleCommentVoted = (data: { commentId: string; voteType: 'UP' | 'DOWN'; userId: string }) => {
+      if (data.commentId === comment.id && data.userId !== user?.id) {
+        setCommentVotes(prev => {
+          const newVotes = { ...prev };
+          if (data.voteType === 'UP') {
+            newVotes.upvotes = prev.upvotes + 1;
+          } else {
+            newVotes.downvotes = prev.downvotes + 1;
+          }
+          return newVotes;
+        });
+      }
+    };
+
+    const handleCommentUnvoted = (data: { commentId: string; userId: string }) => {
+      if (data.commentId === comment.id && data.userId !== user?.id) {
+        // Could decrease count, but safer to refetch
+      }
+    };
+
+    socket.on('commentVoted', handleCommentVoted);
+    socket.on('commentUnvoted', handleCommentUnvoted);
+
+    return () => {
+      socket.off('commentVoted', handleCommentVoted);
+      socket.off('commentUnvoted', handleCommentUnvoted);
+    };
+  }, [comment.id, user?.id]);
+
   const handleCommentVote = async (type: 'UP' | 'DOWN') => {
+    const oldVote = commentVote;
+    let newVote: 'UP' | 'DOWN' | null;
+    
+    // If clicking the same vote, remove it (toggle off)
     if (commentVote === type) {
-      await axios.post(`/comments/${comment.id}/vote`, { vote: 'remove' });
-      setCommentVote(null);
-      setCommentVotes(prev => ({
-        ...prev,
-        [type === 'UP' ? 'upvotes' : 'downvotes']:
-          (prev[type === 'UP' ? 'upvotes' : 'downvotes'] ?? 0) - 1
-      }));
+      newVote = null;
     } else {
-      const prevVote = commentVote;
-      await axios.post(`/comments/${comment.id}/vote`, { vote: type });
-      setCommentVote(type);
-     setCommentVotes(prev => {
-  const newVotes = { ...prev };
-  if (prevVote) {
-    newVotes[prevVote === 'UP' ? 'upvotes' : 'downvotes'] =
-      (newVotes[prevVote === 'UP' ? 'upvotes' : 'downvotes'] ?? 0) - 1;
-  }
-  newVotes[type === 'UP' ? 'upvotes' : 'downvotes'] =
-    (newVotes[type === 'UP' ? 'upvotes' : 'downvotes'] ?? 0) + 1;
-  return newVotes;
-});
+      // Otherwise, switch to the new vote type
+      newVote = type;
+    }
+
+    // Optimistic update
+    setCommentVote(newVote);
+    setCommentVotes(prev => {
+      const newVotes = { ...prev };
+      
+      // Remove old vote count
+      if (oldVote === 'UP') {
+        newVotes.upvotes = (newVotes.upvotes ?? 0) - 1;
+      }
+      if (oldVote === 'DOWN') {
+        newVotes.downvotes = (newVotes.downvotes ?? 0) - 1;
+      }
+      
+      // Add new vote count
+      if (newVote === 'UP') {
+        newVotes.upvotes = (newVotes.upvotes ?? 0) + 1;
+      }
+      if (newVote === 'DOWN') {
+        newVotes.downvotes = (newVotes.downvotes ?? 0) + 1;
+      }
+      
+      return newVotes;
+    });
+
+    try {
+      await axios.post(`/comments/${comment.id}/vote`, { vote: newVote || 'remove' });
+    } catch (error) {
+      // Revert on error
+      setCommentVote(oldVote);
+      setCommentVotes({ upvotes: comment.upvotes, downvotes: comment.downvotes });
+      toast({
+        title: "Error",
+        description: "Failed to update vote. Please try again.",
+        variant: 'destructive',
+      });
     }
   };
 
