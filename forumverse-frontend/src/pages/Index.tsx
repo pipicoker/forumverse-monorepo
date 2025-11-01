@@ -1,12 +1,11 @@
 
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Spotlight } from '@/components/ui/spotlight';
-import { TextGenerateEffect } from '@/components/ui/text-generate-effect';
 import { InfiniteMovingCards } from '@/components/ui/infinite-moving-cards';
 import { BackgroundBeams } from '@/components/ui/background-beams';
 import { BackgroundGrid } from '@/components/ui/background-grid';
@@ -24,12 +23,25 @@ import {
   Heart,
   TrendingUp,
   Lock,
-  Sparkles
+  Sparkles,
+  Code,
+  Lightbulb,
+  Rocket,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRef } from 'react';
 
 export default function Index() {
   const { isAuthenticated } = useAuth();
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  
+  const y = useTransform(scrollYProgress, [0, 1], [0, 100]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [1, 0.8, 0]);
 
   if (isAuthenticated) {
     // Redirect authenticated users to feed
@@ -107,8 +119,8 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section with Aceternity UI */}
-      <section className="relative overflow-hidden py-20 md:py-32 min-h-[700px] md:min-h-[800px] flex items-center">
+      {/* Hero Section with Enhanced Effects */}
+      <section ref={heroRef} className="relative overflow-hidden py-20 md:py-32 min-h-[700px] md:min-h-[800px] flex items-center">
         {/* Spotlight Effect */}
         <Spotlight
           className="-top-40 left-0 md:left-60 md:-top-20"
@@ -116,7 +128,7 @@ export default function Index() {
         />
         
         {/* Background Image with Overlay */}
-        <div className="absolute inset-0">
+        <motion.div className="absolute inset-0" style={{ y }}>
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{
@@ -127,49 +139,242 @@ export default function Index() {
           <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/90 to-background/85"></div>
           <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-primary/10"></div>
           
+          {/* Animated Gradient Mesh Blobs */}
+          <div className="absolute top-20 left-10 w-96 h-96 bg-gradient-to-r from-primary/30 to-purple-500/30 rounded-full blur-3xl animate-pulse opacity-20"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-l from-blue-500/30 to-primary/30 rounded-full blur-3xl animate-pulse opacity-20" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-primary/20 via-purple-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse opacity-10" style={{ animationDelay: '1s' }}></div>
+          
           {/* Background Beams */}
           <BackgroundBeams className="opacity-40" />
+        </motion.div>
+        
+        {/* Floating Particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Code Icon */}
+          <motion.div
+            className="absolute top-20 left-[10%] text-primary/20"
+            animate={{
+              y: [0, -20, 0],
+              rotate: [0, 5, 0],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          >
+            <Code className="w-12 h-12" />
+          </motion.div>
+          
+          {/* Lightbulb Icon */}
+          <motion.div
+            className="absolute top-40 right-[15%] text-primary/20"
+            animate={{
+              y: [0, 20, 0],
+              rotate: [0, -5, 0],
+            }}
+            transition={{
+              duration: 5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.5
+            }}
+          >
+            <Lightbulb className="w-10 h-10" />
+          </motion.div>
+          
+          {/* Rocket Icon */}
+          <motion.div
+            className="absolute bottom-32 left-[15%] text-primary/20"
+            animate={{
+              y: [0, -15, 0],
+              rotate: [0, 10, 0],
+            }}
+            transition={{
+              duration: 4.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1
+            }}
+          >
+            <Rocket className="w-11 h-11" />
+          </motion.div>
+          
+          {/* MessageSquare Icon */}
+          <motion.div
+            className="absolute top-1/2 right-[10%] text-primary/20"
+            animate={{
+              y: [0, 15, 0],
+              rotate: [0, -10, 0],
+            }}
+            transition={{
+              duration: 5.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1.5
+            }}
+          >
+            <MessageSquare className="w-10 h-10" />
+          </motion.div>
+          
+          {/* Star Icons */}
+          <motion.div
+            className="absolute top-1/3 left-[20%] text-primary/15"
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          >
+            <Star className="w-6 h-6" />
+          </motion.div>
+          
+          <motion.div
+            className="absolute bottom-1/3 right-[25%] text-primary/15"
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [0.2, 0.5, 0.2],
+            }}
+            transition={{
+              duration: 3.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.7
+            }}
+          >
+            <Star className="w-5 h-5" />
+          </motion.div>
         </div>
         
-        <div className="container mx-auto px-4 relative z-10">
+        <motion.div className="container mx-auto px-4 relative z-10" style={{ opacity }}>
           <div className="text-center max-w-5xl mx-auto">
             <div className="animate-fade-in">
-              <Badge className="mb-6 px-4 py-2 text-sm backdrop-blur-sm bg-primary/10 border-primary/20" variant="outline">
-                <Sparkles className="w-3 h-3 mr-1.5" />
-                Join 50,000+ developers worldwide
-              </Badge>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <Badge className="mb-6 px-4 py-2 text-sm backdrop-blur-sm bg-primary/10 border-primary/20 hover:bg-primary/20 transition-colors" variant="outline">
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.1, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  >
+                    <Sparkles className="w-3 h-3 mr-1.5" />
+                  </motion.div>
+                  Join 50,000+ developers worldwide
+                </Badge>
+              </motion.div>
               
-              <TextGenerateEffect
-                words="Where Ideas Come to Life"
+              <motion.h1
                 className="text-5xl md:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-foreground via-foreground to-primary bg-clip-text text-transparent"
-              />
+                initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ 
+                  duration: 0.8, 
+                  delay: 0.2,
+                  ease: [0.25, 0.1, 0.25, 1]
+                }}
+              >
+                Where Ideas Come to Life
+              </motion.h1>
               
-              <p className="text-xl md:text-2xl text-foreground/90 mb-10 leading-relaxed max-w-3xl mx-auto drop-shadow-md animate-fade-in">
+              <motion.p 
+                className="text-xl md:text-2xl text-foreground/95 mb-10 leading-relaxed max-w-3xl mx-auto drop-shadow-lg animate-fade-in font-medium"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
                 Join a thriving community of developers, designers, and innovators. 
                 Share knowledge, solve problems, and build meaningful connections.
-              </p>
+              </motion.p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in">
+              <motion.div 
+                className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+              >
                 <Link to="/register">
-                  <Button size="lg" className="w-full sm:w-auto group px-8 py-6 text-base shadow-xl hover:shadow-2xl transition-all backdrop-blur-sm">
-                    Get Started Free
-                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button size="lg" className="w-full sm:w-auto group px-8 py-6 text-base shadow-xl hover:shadow-2xl hover:shadow-primary/20 transition-all backdrop-blur-sm relative overflow-hidden">
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        initial={{ x: '-100%' }}
+                        whileHover={{ x: '100%' }}
+                        transition={{ duration: 0.5 }}
+                      />
+                      <span className="relative z-10">Get Started Free</span>
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" />
+                    </Button>
+                  </motion.div>
                 </Link>
                 <Link to="/login">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-8 py-6 text-base border-2 backdrop-blur-sm bg-background/20 hover:bg-background/40 transition-all">
-                    Sign In
-                  </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Button size="lg" variant="outline" className="w-full sm:w-auto px-8 py-6 text-base border-2 backdrop-blur-sm bg-background/20 hover:bg-background/40 hover:border-primary/50 transition-all">
+                      Sign In
+                    </Button>
+                  </motion.div>
                 </Link>
-              </div>
+              </motion.div>
               
-              <p className="text-sm text-foreground/70 mt-6 flex items-center justify-center gap-2 drop-shadow animate-fade-in">
+              <motion.p 
+                className="text-sm text-foreground/80 mt-6 flex items-center justify-center gap-2 drop-shadow animate-fade-in font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.8 }}
+              >
                 <CheckCircle className="w-4 h-4 text-primary" />
                 No credit card required • Free forever
-              </p>
+              </motion.p>
             </div>
           </div>
-        </div>
+        </motion.div>
+        
+        {/* Scroll Indicator */}
+        <motion.div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 cursor-pointer"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1 }}
+          onClick={() => {
+            window.scrollTo({ 
+              top: window.innerHeight, 
+              behavior: 'smooth' 
+            });
+          }}
+        >
+          <span className="text-xs text-foreground/60 font-medium tracking-wider uppercase">Scroll to explore</span>
+          <motion.div
+            animate={{
+              y: [0, 8, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="flex flex-col items-center"
+          >
+            <ChevronDown className="w-5 h-5 text-primary" />
+            <ChevronDown className="w-5 h-5 text-primary -mt-3 opacity-50" />
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Stats Section with Enhanced Animations */}
