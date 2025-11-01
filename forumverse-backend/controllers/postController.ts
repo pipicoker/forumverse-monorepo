@@ -34,25 +34,30 @@ export const getAllPosts = async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { page = 1, limit = 4, search, tags, sort = 'newest' } = req.query;
 
+    console.log('📋 Get Posts Request:', { page, limit, search, tags, sort, userId });
+
     const where: any = {};
 
-    if (search) {
+    if (search && (search as string).trim() !== '') {
       where.OR = [
         { title: { contains: search as string, mode: 'insensitive' } },
         { content: { contains: search as string, mode: 'insensitive' } }
       ];
     }
 
-    if (tags) {
-      where.tags = {
-        some: {
-          tag: {
-            name: {
-              in: (tags as string).split(',')
+    if (tags && (tags as string).trim() !== '') {
+      const tagList = (tags as string).split(',').filter(t => t.trim() !== '');
+      if (tagList.length > 0) {
+        where.tags = {
+          some: {
+            tag: {
+              name: {
+                in: tagList
+              }
             }
           }
-        }
-      };
+        };
+      }
     }
 
     let orderBy: any = { createdAt: 'desc' };

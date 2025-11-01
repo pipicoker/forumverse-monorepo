@@ -76,27 +76,26 @@ export const PostProvider = ({ children }: { children: React.ReactNode }) => {
     const response = await axios.get('/posts', { params });
     const fetched = response.data;
 
-   setPosts(prev => {
-  const updated = fetched.map(newPost => {
-  const existing = prev.find(p => p.id === newPost.id);
-  return existing
-    ? {
-        ...existing,
-        ...newPost,
-        topLevelCommentCount: newPost.topLevelCommentCount ?? existing.topLevelCommentCount ?? 0,
+    setPosts(prev => {
+      if (!append) {
+        // Replace all posts with fetched data
+        return fetched.map((post: any) => ({
+          ...post,
+          topLevelCommentCount: post.topLevelCommentCount ?? 0,
+        }));
       }
-    : {
-        ...newPost,
-        topLevelCommentCount: newPost.topLevelCommentCount ?? 0,
-      };
-});
-
-  // Only add posts that are truly new
-  const newPosts = fetched.filter(p => !prev.some(existing => existing.id === p.id));
-
-  return append ? [...prev.filter(p => !fetched.some(fp => fp.id === p.id)), ...updated] : fetched;
-});
-
+      
+      // Append mode: Add new posts to the end, avoiding duplicates
+      const existingIds = new Set(prev.map(p => p.id));
+      const newPosts = fetched
+        .filter((post: any) => !existingIds.has(post.id))
+        .map((post: any) => ({
+          ...post,
+          topLevelCommentCount: post.topLevelCommentCount ?? 0,
+        }));
+      
+      return [...prev, ...newPosts];
+    });
 
     return fetched;
   };

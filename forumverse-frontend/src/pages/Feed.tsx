@@ -20,6 +20,7 @@ import debounce from 'lodash/debounce';
 
 export default function Feed() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedTags, setSelectedTags] = useState<{ tag: { id: string; name: string } }[]>([]);
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'trending'>('newest');
 
@@ -39,86 +40,60 @@ export default function Feed() {
   }, 500), []
 );
 
+// Initial load
 useEffect(() => {
-  if (posts.length === 0) {
-    loadPosts(true);
+  if (posts.length === 0 && !didMountRef.current) {
+    didMountRef.current = true;
+    loadPosts(1);
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
-useEffect(() => {
-  if (page > 1) {
-    loadPosts(false);
-  }
-}, [page]);
-
-
-
+// When filters change, reset to page 1
 useEffect(() => {
   if (didMountRef.current) {
     setPage(1);
     setHasMore(true);
-    setPosts([]); // reset
-    loadPosts(true); // manually load first page
-  } else {
-    didMountRef.current = true;
+    setPosts([]);
+    loadPosts(1);
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [searchQuery, selectedTags, sortBy]);
 
-const previousFilters = useRef({
-  searchQuery,
-  selectedTags,
-  sortBy,
-});
-
+// When page changes (for load more), fetch that page
 useEffect(() => {
-  const filtersChanged =
-    previousFilters.current.searchQuery !== searchQuery ||
-    previousFilters.current.sortBy !== sortBy ||
-    JSON.stringify(previousFilters.current.selectedTags) !== JSON.stringify(selectedTags);
-
-  if (didMountRef.current && filtersChanged) {
-    previousFilters.current = { searchQuery, selectedTags, sortBy };
-    setPage(1);
-    setHasMore(true);
-    setPosts([]);
-    loadPosts(true);
-  } else {
-    didMountRef.current = true;
+  if (didMountRef.current && page > 1) {
+    loadPosts(page);
   }
-}, [searchQuery, selectedTags, sortBy]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [page]);
 
 
-const loadPosts = async (isInitial = false) => {
+const loadPosts = async (pageToLoad: number) => {
   if (loading) return;
-
-  if (isInitial) {
-    setPosts([]);
-    setPage(1);
-    setHasMore(true);
-  }
-  
 
   setLoading(true);
 
   try {
     const params = {
-      page,
+      page: pageToLoad,
       limit,
       search: searchQuery.trim(),
       tags: selectedTags.map(t => t.tag.name).join(','),
       sort: sortBy,
     };
 
-    const response = await fetchPosts(params, true);
+    const isAppend = pageToLoad > 1;
+    const response = await fetchPosts(params, isAppend);
 
     if (response.length < limit) {
       setHasMore(false);
     }
   } catch (err) {
-    console.error(err);
+    console.error('Error loading posts:', err);
+  } finally {
+    setLoading(false);
   }
-
-  setLoading(false);
 };
 
 
@@ -182,11 +157,13 @@ const handleLoadMore = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Search posts, users, or topics..."
-                  defaultValue={searchQuery}
-                  onChange={(e) => debouncedSetSearch(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value);
+                    debouncedSetSearch(e.target.value);
+                  }}
                   className="pl-10"
                 />
-
               </div>
               <Select value={sortBy} onValueChange={(value: 'newest' | 'popular' | 'trending') => setSortBy(value)}>
                 <SelectTrigger className="w-full sm:w-48">
@@ -260,6 +237,7 @@ const handleLoadMore = () => {
               </div>
               <Button variant="outline" onClick={() => {
                 setSearchQuery('');
+                setSearchInput('');
                 setSelectedTags([]);
                 setPage(1);
               }}>
