@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import axios from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -32,15 +32,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const {  user, refreshUser} = useAuth();
   
 
-const fetchProfile = async (userId?: string) => {
+const fetchProfile = useCallback(async (userId?: string) => {
   try {
+    // Clear profile first to prevent showing stale data
+    setProfile(null);
+    
     const endpoint = userId ? `/user/${userId}` : '/user';
     const res = await axios.get(endpoint);
     setProfile(res.data);
   } catch (err) {
     console.error('Failed to fetch profile:', err);
+    setProfile(null);
   }
-};
+}, []);
 
 
   const updateProfile = async (data: Partial<UserProfile>) => {

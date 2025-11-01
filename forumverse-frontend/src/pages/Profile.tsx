@@ -109,26 +109,39 @@ const fetchUserComments = async (offset = 0) => {
   useEffect(() => {
   if (!id) return;
 
-  if ( userPosts.length === 0) {
+  if (userPosts.length === 0 && !loadingPosts) {
     fetchUserPosts(0);
   }
-}, [activeTab, id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [id]);
 
 useEffect(() => {
-  if ( profileUser && userComments.length == 0 ) {
+  if (profileUser && userComments.length === 0 && !loadingComments) {
     fetchUserComments();
   }
-}, [userPosts, profileUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [profileUser?.id]);
 
 
 
   useEffect(() => {
     if (id) {
-      fetchProfile(id);
+      // Clear all state to avoid showing stale data when switching profiles
+      setLoading(true);
+      setUserPosts([]);
+      setUserComments([]);
+      setPostOffset(0);
+      setCommentOffset(0);
+      setPostHasMore(true);
+      setCommentHasMore(true);
+      setTotalPostCount(0);
+      setTotalCommentCount(0);
+      
+      fetchProfile(id).finally(() => setLoading(false));
     }
   }, [id, fetchProfile]);
 
-  if (!profileUser ) {
+  if (!profileUser || loadingProfile) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
          <div className="flex justify-center items-center h-[50vh]">

@@ -80,42 +80,50 @@ export const getUserProfile = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-  return res.status(404).json({ error: 'User not found' });
-}
+      return res.status(404).json({ error: 'User not found' });
+    }
 
-// Enrich posts
-// user.posts = await Promise.all(user.posts.map(async (post: any) => {
-//   const votes = await prisma.vote.findMany({
-//     where: { postId: post.id },
-//     select: { type: true, userId: true }
-//   });
-//   const upvotes = votes.filter(v => v.type === 'UP').length;
-//   const downvotes = votes.filter(v => v.type === 'DOWN').length;
-//   const userVote = votes.find(v => v.userId === req.user?.userId)?.type ?? null;
-//   return { ...post, upvotes, downvotes, userVote };
-// }));
+    // Enrich savedPosts with vote counts
+    try {
+      user.savedPosts = await Promise.all((user.savedPosts || []).map(async (savedPost: any) => {
+        try {
+          const post = savedPost.post;
+          if (!post || !post.id) {
+            console.warn('Invalid saved post found, skipping:', savedPost);
+            return null;
+          }
+          
+          const votes = await prisma.vote.findMany({
+            where: { postId: post.id },
+            select: { type: true, userId: true }
+          });
+          const upvotes = votes.filter(v => v.type === 'UP').length;
+          const downvotes = votes.filter(v => v.type === 'DOWN').length;
+          const userVote = votes.find(v => v.userId === req.user?.userId)?.type ?? null;
+          
+          return {
+            ...savedPost,
+            post: { ...post, upvotes, downvotes, userVote }
+          };
+        } catch (postError) {
+          console.error('Error enriching saved post:', postError);
+          return savedPost; // Return original if enrichment fails
+        }
+      }));
+      
+      // Filter out any null entries
+      user.savedPosts = user.savedPosts.filter(Boolean);
+    } catch (enrichError) {
+      console.error('Error enriching saved posts:', enrichError);
+      // Continue with unenriched data rather than failing completely
+    }
 
-// Enrich savedPosts
-user.savedPosts = await Promise.all((user.savedPosts || []).map(async (savedPost: any) => {
-  const post = savedPost.post;
-  const votes = await prisma.vote.findMany({
-    where: { postId: post.id },
-    select: { type: true, userId: true }
-  });
-  const upvotes = votes.filter(v => v.type === 'UP').length;
-  const downvotes = votes.filter(v => v.type === 'DOWN').length;
-  const userVote = votes.find(v => v.userId === req.user?.userId)?.type ?? null;
-  return {
-    ...savedPost,
-    post: { ...post, upvotes, downvotes, userVote }
-  };
-}));
-
-io.emit('userProfileRetrieved', user);
-res.json(user);
+    io.emit('userProfileRetrieved', user);
+    res.json(user);
   } catch (error) {
     console.error('Error getting user profile:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+    res.status(500).json({ error: 'Server error', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 
