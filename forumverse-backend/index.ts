@@ -16,6 +16,7 @@ import commentRoutes from './routes/comments';
 import reportRoutes from './routes/reports';
 import userRoutes from './routes/users';
 import notificationRoutes from './routes/notifications';
+import statsRoutes from './routes/stats';
 
 
 const app = express()
@@ -91,6 +92,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/stats', statsRoutes);
 
 app.get('/', (req, res) => {
   res.send('🟢 Backend is running!');

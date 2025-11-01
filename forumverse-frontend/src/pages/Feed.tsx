@@ -12,11 +12,38 @@ import {
 } from '@/components/ui/select';
 import { Search, Filter, TrendingUp, Clock, Plus } from 'lucide-react';
 import { usePosts } from '@/hooks/usePosts';
-import { mockTags } from '@/data/mockData'; 
 import { Link } from 'react-router-dom';
 import axios from '@/lib/axios';
 import debounce from 'lodash/debounce';
 
+
+interface CommunityStats {
+  totalPosts: number;
+  totalUsers: number;
+  todaysPosts: number;
+  activeUsers: number;
+  onlineNow: number;
+}
+
+interface PopularTag {
+  id: string;
+  name: string;
+  _count: {
+    posts: number;
+  };
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'post' | 'comment';
+  username: string;
+  userId: string;
+  action: string;
+  target: string;
+  postId: string;
+  postTitle: string;
+  createdAt: string;
+}
 
 export default function Feed() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +60,11 @@ export default function Feed() {
   const isInitialLoad = loading && page === 1;
   const isLoadMore = loading && page > 1;
 
+  // Stats state
+  const [communityStats, setCommunityStats] = useState<CommunityStats | null>(null);
+  const [popularTags, setPopularTags] = useState<PopularTag[]>([]);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+
 
   const debouncedSetSearch = useMemo(
   () => debounce((value: string) => {
@@ -40,12 +72,64 @@ export default function Feed() {
   }, 500), []
 );
 
-// Initial load
+// Fetch stats functions
+const fetchCommunityStats = async () => {
+  try {
+    console.log('Fetching community stats...');
+    const response = await axios.get('/stats/community');
+    console.log('Community stats response:', response.data);
+    setCommunityStats(response.data);
+  } catch (error) {
+    console.error('Error fetching community stats:', error);
+    // Set empty stats to stop loading spinner
+    setCommunityStats({
+      totalPosts: 0,
+      totalUsers: 0,
+      todaysPosts: 0,
+      activeUsers: 0,
+      onlineNow: 0
+    });
+  }
+};
+
+const fetchPopularTags = async () => {
+  try {
+    console.log('Fetching popular tags...');
+    const response = await axios.get('/stats/popular-tags?limit=15');
+    console.log('Popular tags response:', response.data);
+    setPopularTags(response.data);
+  } catch (error) {
+    console.error('Error fetching popular tags:', error);
+    setPopularTags([]); // Set empty array to stop loading
+  }
+};
+
+const fetchRecentActivity = async () => {
+  try {
+    console.log('Fetching recent activity...');
+    const response = await axios.get('/stats/recent-activity?limit=5');
+    console.log('Recent activity response:', response.data);
+    setRecentActivity(response.data);
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    setRecentActivity([]); // Set empty array to stop loading
+  }
+};
+
+// Initial load - fetch posts
 useEffect(() => {
   if (posts.length === 0 && !didMountRef.current) {
     didMountRef.current = true;
     loadPosts(1);
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+// Always fetch stats on mount (separate from posts)
+useEffect(() => {
+  fetchCommunityStats();
+  fetchPopularTags();
+  fetchRecentActivity();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
@@ -275,65 +359,90 @@ const handleLoadMore = () => {
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="font-semibold mb-4">Popular Tags</h3>
             <div className="flex flex-wrap gap-2">
-              {mockTags.slice(0, 15).map(tag => (
-                <Badge
-                  key={tag}
-                  variant={selectedTags.some(t => t.tag.name === tag) ? "default" : "outline"}
-                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  onClick={() => toggleTag(tag)}
-                >
-                  {tag}
-                </Badge>
-              ))}
+              {popularTags.length > 0 ? (
+                popularTags.map(tag => (
+                  <Badge
+                    key={tag.id}
+                    variant={selectedTags.some(t => t.tag.name === tag.name) ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => toggleTag(tag.name)}
+                  >
+                    {tag.name} <span className="ml-1 text-xs opacity-70">({tag._count.posts})</span>
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No tags yet</p>
+              )}
             </div>
           </div>
 
           {/* Community Stats */}
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="font-semibold mb-4">Community Stats</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Posts</span>
-                <span className="font-medium">1,247</span>
+            {communityStats ? (
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Posts</span>
+                  <span className="font-medium">{communityStats.totalPosts.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Active Users</span>
+                  <span className="font-medium">{communityStats.activeUsers.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Today's Posts</span>
+                  <span className="font-medium">{communityStats.todaysPosts.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Users</span>
+                  <span className="font-medium">{communityStats.totalUsers.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Active Users</span>
-                <span className="font-medium">892</span>
+            ) : (
+              <div className="flex justify-center py-4">
+                <div className="w-5 h-5 border-2 border-t-transparent border-primary rounded-full animate-spin" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Today's Posts</span>
-                <span className="font-medium">23</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Online Now</span>
-                <span className="font-medium text-green-500">156</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Recent Activity */}
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="font-semibold mb-4">Recent Activity</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-muted-foreground">
-                  <span className="font-medium">techguru42</span> posted in <span className="font-medium">React</span>
-                </span>
+            {recentActivity.length > 0 ? (
+              <div className="space-y-3 text-sm">
+                {recentActivity.map((activity, index) => (
+                  <div 
+                    key={activity.id} 
+                    className="flex items-center space-x-2 group"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${
+                      index % 3 === 0 ? 'bg-green-500' : 
+                      index % 3 === 1 ? 'bg-blue-500' : 
+                      'bg-purple-500'
+                    }`}></div>
+                    <span className="text-muted-foreground">
+                      <Link 
+                        to={`/profile/${activity.userId}`}
+                        className="font-medium hover:text-primary transition-colors"
+                      >
+                        {activity.username}
+                      </Link>
+                      {' '}{activity.action}{' '}
+                      <Link
+                        to={`/post/${activity.postId}`}
+                        className="font-medium hover:text-primary transition-colors"
+                      >
+                        {activity.target}
+                      </Link>
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-muted-foreground">
-                  <span className="font-medium">designlover</span> commented on <span className="font-medium">Web Design</span>
-                </span>
+            ) : (
+              <div className="flex justify-center py-4">
+                <div className="w-5 h-5 border-2 border-t-transparent border-primary rounded-full animate-spin" />
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="text-muted-foreground">
-                  <span className="font-medium">codewarrior</span> started a discussion
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
