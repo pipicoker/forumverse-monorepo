@@ -10,7 +10,7 @@ import compression from 'compression';
 import { createServer } from 'http';
 import {Server} from 'socket.io';
 import rateLimit from 'express-rate-limit';
-import { PrismaClient } from '@prisma/client';
+import prisma from './lib/prisma';
 import authRoutes from './routes/auth'
 import postRoutes from './routes/posts'
 import commentRoutes from './routes/comments';
@@ -21,7 +21,6 @@ import statsRoutes from './routes/stats';
 
 
 const app = express()
-const prisma = new PrismaClient();
 
 const httpServer = createServer(app);
 

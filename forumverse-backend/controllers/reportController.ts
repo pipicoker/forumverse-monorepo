@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { createReportSchema } from '../middlewares/validator';
 import { io } from '../index'; // Import the socket.io instance
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Create a report for a comment or post
 export const createReport = async (req: Request, res: Response) => {

@@ -1,11 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { io } from '../index'; // Import the socket.io instance
 import { createNotification } from './notificationController';
-
 import { createPostSchema } from '../middlewares/validator';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // function enrichComment(comment, userId) {
 //   const upvotes = comment.votes ? comment.votes.filter(v => v.type === 'UP').length : 0;

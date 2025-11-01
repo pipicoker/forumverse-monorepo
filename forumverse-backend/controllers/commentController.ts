@@ -1,10 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { createCommentSchema } from '../middlewares/validator';
 import { io } from '../index';
 import { createNotification } from './notificationController';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 
 function enrichComment(comment: any, userId: string | undefined) {

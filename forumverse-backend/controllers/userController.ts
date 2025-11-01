@@ -1,10 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { io } from '../index'; // Import the socket.io instance
-
 import { updateUserSchema } from '../middlewares/validator';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Update user profile
 export const updateUserProfile = async (req: Request, res: Response) => {
