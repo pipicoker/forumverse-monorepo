@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 // import http from 'http'; 
 import { createServer } from 'http';
 import {Server} from 'socket.io';
@@ -63,6 +64,7 @@ export { io };
 
 
 // Middleware
+app.use(compression()); // Enable gzip compression
 app.use(helmet());
 app.use(cors({
   origin: [

@@ -260,8 +260,8 @@ useEffect(() => {
                 <div className="flex items-center space-x-3 text-sm">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                    <span>
-                    {profileUser.joinDate
-                      ? `Joined ${formatDistanceToNow(new Date(profileUser.joinDate), { addSuffix: true })}`
+                    {profileUser.createdAt
+                      ? `Joined ${formatDistanceToNow(new Date(profileUser.createdAt), { addSuffix: true })}`
                       : 'Joined date unknown'}
                   </span>
                 </div>

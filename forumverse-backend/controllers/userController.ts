@@ -51,25 +51,40 @@ export const getUserProfile = async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        bio: true,
+        avatar: true,
+        reputation: true,
+        role: true,
+        createdAt: true,
         savedPosts: {
-        //   orderBy: { createdAt: 'desc' },
-          include: {
+          take: 10, // Limit saved posts
+          select: {
             post: {
               select: {
                 id: true,
                 title: true,
-                content: true,
+                excerpt: true,
                 createdAt: true,
                 tags: {
-                  include: { tag: true },
+                  select: {
+                    tag: {
+                      select: {
+                        id: true,
+                        name: true
+                      }
+                    }
+                  },
+                  take: 3 // Limit tags per post
                 },
                 author: {
                   select: {
                     id: true,
                     username: true,
                     avatar: true,
-                    role: true,
                   },
                 },
               },

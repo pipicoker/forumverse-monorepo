@@ -3,9 +3,27 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Simple in-memory cache
+const cache = {
+  communityStats: { data: null as any, timestamp: 0 },
+  popularTags: { data: null as any, timestamp: 0 },
+  recentActivity: { data: null as any, timestamp: 0 }
+};
+
+const CACHE_TTL = 60000; // 1 minute cache
+
+const isCacheValid = (timestamp: number) => {
+  return Date.now() - timestamp < CACHE_TTL;
+};
+
 // Get community stats
 export const getCommunityStats = async (req: Request, res: Response) => {
   try {
+    // Return cached data if valid
+    if (cache.communityStats.data && isCacheValid(cache.communityStats.timestamp)) {
+      return res.json(cache.communityStats.data);
+    }
+
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -52,13 +70,21 @@ export const getCommunityStats = async (req: Request, res: Response) => {
       })
     ]);
 
-    res.json({
+    const stats = {
       totalPosts,
       totalUsers,
       todaysPosts,
       activeUsers,
       onlineNow: 0 // We don't track online status yet
-    });
+    };
+
+    // Cache the result
+    cache.communityStats = {
+      data: stats,
+      timestamp: Date.now()
+    };
+
+    res.json(stats);
   } catch (error) {
     console.error('Error fetching community stats:', error);
     res.status(500).json({ error: 'Failed to fetch community stats' });
@@ -68,6 +94,11 @@ export const getCommunityStats = async (req: Request, res: Response) => {
 // Get popular tags
 export const getPopularTags = async (req: Request, res: Response) => {
   try {
+    // Return cached data if valid
+    if (cache.popularTags.data && isCacheValid(cache.popularTags.timestamp)) {
+      return res.json(cache.popularTags.data);
+    }
+
     const limit = parseInt(req.query.limit as string) || 15;
 
     const tags = await prisma.tag.findMany({
@@ -86,6 +117,12 @@ export const getPopularTags = async (req: Request, res: Response) => {
       take: limit
     });
 
+    // Cache the result
+    cache.popularTags = {
+      data: tags,
+      timestamp: Date.now()
+    };
+
     res.json(tags);
   } catch (error) {
     console.error('Error fetching popular tags:', error);
@@ -96,6 +133,11 @@ export const getPopularTags = async (req: Request, res: Response) => {
 // Get recent activity
 export const getRecentActivity = async (req: Request, res: Response) => {
   try {
+    // Return cached data if valid
+    if (cache.recentActivity.data && isCacheValid(cache.recentActivity.timestamp)) {
+      return res.json(cache.recentActivity.data);
+    }
+
     const limit = parseInt(req.query.limit as string) || 10;
 
     // Get recent posts
@@ -178,6 +220,12 @@ export const getRecentActivity = async (req: Request, res: Response) => {
       }))
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
      .slice(0, limit);
+
+    // Cache the result
+    cache.recentActivity = {
+      data: activities,
+      timestamp: Date.now()
+    };
 
     res.json(activities);
   } catch (error) {

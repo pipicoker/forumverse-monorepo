@@ -10,11 +10,12 @@ interface UserProfile {
   avatar: string;
   reputation: number;
   role: string;
-  joinDate: string;
-  posts: any[];
-  comment: any[];
-  reports: any[];
-  votes: any[];
+  createdAt: string;
+  joinDate?: string;
+  posts?: any[];
+  comment?: any[];
+  reports?: any[];
+  votes?: any[];
   savedPosts: any[];
 }
 

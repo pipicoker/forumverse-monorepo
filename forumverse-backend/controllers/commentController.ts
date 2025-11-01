@@ -37,9 +37,12 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Post ID is required' });
         }
 
-        // Fetch comments for the post
+        // Fetch top-level comments for the post (not replies)
         const comments = await prisma.comment.findMany({
-            where: { postId },
+            where: { 
+              postId,
+              parentId: null // Only top-level comments
+            },
             orderBy: {
               createdAt: 'desc', 
             },
@@ -54,21 +57,38 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
 
                 },
                 votes: true,
-                 replies: {
+                replies: {
                   orderBy: {
                     createdAt: 'desc',
                   },
-                    include: {
+                  include: {
+                    author: {
+                      select: {
+                        id: true,
+                        username: true,
+                        avatar: true,
+                        role: true
+                      }
+                    },
+                    votes: true,
+                    // Limit to 2 levels deep (no replies to replies to replies)
+                    replies: {
+                      orderBy: {
+                        createdAt: 'desc',
+                      },
+                      include: {
                         author: {
-                            select: {
-                                id: true,
-                                username: true,
-                                avatar: true,
-                                role: true
-                            }
+                          select: {
+                            id: true,
+                            username: true,
+                            avatar: true,
+                            role: true
+                          }
                         },
                         votes: true
+                      }
                     }
+                  }
                 },
 
             }
@@ -80,8 +100,10 @@ export const getCommentsForPost = async (req: Request, res: Response) => {
     res.json(enriched);
 
     } catch (error) {
-        res.status(500).json({ error: 'Server error' });
-        
+        console.error('Error fetching comments for post:', error);
+        console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
+        res.status(500).json({ error: 'Server error', details: error instanceof Error ? error.message : 'Unknown error' });
     }
 }
 
